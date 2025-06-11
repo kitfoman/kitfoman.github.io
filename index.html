@@ -3,85 +3,72 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebGL Gradient – Debug</title>
+    <title>WebGL 2 Gradient – Debug</title>
     <style>
-      html, body {
-        margin: 0;
-        height: 100%;
-        overflow: hidden;
-        background: #000;
-        font-family: system-ui, sans-serif;
-      }
-      header {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        padding: 0.5rem 1rem;
-        backdrop-filter: blur(4px);
-        background: rgba(0, 0, 0, 0.3);
-        color: #fff;
-        font-size: 0.9rem;
-        z-index: 10;
-      }
-      header a {
-        color: #8ad;
-        text-decoration: none;
-        margin-right: 1rem;
-      }
-      #gl {
-        width: 100vw;
-        height: 100vh;
-        display: block;
-      }
+      html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,sans-serif}
+      /* Solid black header for better contrast */
+      header{position:fixed;top:0;left:0;width:100%;padding:.5rem 1rem;background:#000;color:#fff;font-size:.9rem;z-index:10}
+      header a{color:#8ad;text-decoration:none;margin-right:1rem}
+      #gl{width:100vw;height:100vh;display:block}
     </style>
   </head>
   <body>
     <header>
       <a href="/">Home</a>
-      <a href="https://shadertoy.com" target="_blank" rel="noopener">ShaderToy ↗</a>
-      <a href="https://github.com/YOUR-USER" target="_blank" rel="noopener">GitHub ↗</a>
+      <a href="https://shadertoy.com" target="_blank" rel="noopener">ShaderToy ↗</a>
+      <a href="https://github.com/YOUR-USER" target="_blank" rel="noopener">GitHub ↗</a>
     </header>
     <canvas id="gl"></canvas>
 
-    <!-- Use ES modules so Three.js stays scoped -->
     <script type="module">
+      /* ------------------------------------------------------------------
+         WebGL 2 + GLSL 300 ES setup so we can use modern keywords (`in/out`).
+         Works in all evergreen browsers (Chrome 65+, Firefox 51+, Safari 15+).
+      ------------------------------------------------------------------ */
       import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
 
-      // ---------------- Shaders ----------------
-      // WebGL 1.0 needs the old‑school "attribute" qualifier.
-      const vert = /* glsl */ `
-        attribute vec3 position;
+      // request an explicit WebGL2 context
+      const canvas   = document.getElementById('gl');
+      const glCtx    = canvas.getContext('webgl2', { antialias: true });
+      if (!glCtx) {
+        alert('WebGL 2 not available in this browser.');
+        throw new Error('WebGL 2 not available');
+      }
+
+      const renderer = new THREE.WebGLRenderer({ canvas, context: glCtx });
+      renderer.setPixelRatio(window.devicePixelRatio);
+
+      // ---------------- Shaders (super‑simple gradient) --------------
+      const vert = /* glsl */`#version 300 es
+        in  vec3 position;
         void main() {
           gl_Position = vec4(position, 1.0);
         }
       `;
 
-      const frag = /* glsl */ `
+      const frag = /* glsl */`#version 300 es
         precision highp float;
         uniform vec2  iResolution;
         uniform float iTime;
+        out vec4 fragColor;
         void main() {
           vec2 uv = gl_FragCoord.xy / iResolution;
-          gl_FragColor = vec4(uv, 0.5 + 0.5 * sin(iTime), 1.0);
+          fragColor = vec4(uv, 0.5 + 0.5 * sin(iTime), 1.0);
         }
       `;
 
-      // --------------- Three.js boot ---------------
-      const canvas = document.getElementById('gl');
-      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-
-      const scene = new THREE.Scene();
-      const camera = new THREE.Camera();
-      camera.position.z = 1; // keep camera in front of quad
+      // --------------- Three.js scene -------------------------------
+      const scene   = new THREE.Scene();
+      const camera  = new THREE.Camera();
+      camera.position.z = 1;
 
       const uniforms = {
-        iTime: { value: 0 },
+        iTime:       { value: 0 },
         iResolution: { value: new THREE.Vector2() }
       };
 
       const material = new THREE.RawShaderMaterial({
+        glslVersion: THREE.GLSL3,
         vertexShader: vert,
         fragmentShader: frag,
         uniforms,
@@ -89,11 +76,13 @@
         side: THREE.DoubleSide
       });
 
-      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2,2), material);
       scene.add(quad);
 
+      // ---------------- resize & loop -------------------------------
       function resize() {
-        const { innerWidth: w, innerHeight: h } = window;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
         renderer.setSize(w, h, false);
         uniforms.iResolution.value.set(w, h);
       }
