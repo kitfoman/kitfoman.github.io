@@ -3,10 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title> kitfocapital </title>
+    <title>Kitfocapital</title>
     <style>
       html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,sans-serif}
-      /* Solid black header for better contrast */
       header{position:fixed;top:0;left:0;width:100%;padding:.5rem 1rem;background:#000;color:#fff;font-size:.9rem;z-index:10}
       header a{color:#8ad;text-decoration:none;margin-right:1rem}
       #gl{width:100vw;height:100vh;display:block}
@@ -15,33 +14,29 @@
   <body>
     <header>
       <a href="/">Home</a>
-      <a href="https://shadertoy.com" target="_blank" rel="noopener">ShaderToy ↗</a>
-      <a href="https://github.com/kitfoman" target="_blank" rel="noopener">GitHub ↗</a>
+      <a href="https://github.com/kitfoman/" target="_blank" rel="noopener">Github↗</a>
+      <a href="/blog.html">Ramblings</a>
     </header>
     <canvas id="gl"></canvas>
 
     <script type="module">
-      /* ------------------------------------------------------------------
-         WebGL 2 + GLSL 300 ES setup so we can use modern keywords (`in/out`).
-         Works in all evergreen browsers (Chrome 65+, Firefox 51+, Safari 15+).
-      ------------------------------------------------------------------ */
       import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
 
-      // request an explicit WebGL2 context
-      const canvas   = document.getElementById('gl');
-      const glCtx    = canvas.getContext('webgl2', { antialias: true });
+      // Request explicit WebGL 2 context
+      const canvas = document.getElementById('gl');
+      const glCtx  = canvas.getContext('webgl2', { antialias: true });
       if (!glCtx) {
-        alert('WebGL 2 not available in this browser.');
+        alert('WebGL 2 not available');
         throw new Error('WebGL 2 not available');
       }
 
       const renderer = new THREE.WebGLRenderer({ canvas, context: glCtx });
       renderer.setPixelRatio(window.devicePixelRatio);
 
-      // ---------------- Shaders (super‑simple gradient) --------------
+      // ----------------- Shaders -----------------------------------
       const vert = /* glsl */`
-        in  vec3 position;
-        void main() {
+        in vec3 position;
+        void main(){
           gl_Position = vec4(position, 1.0);
         }
       `;
@@ -51,15 +46,55 @@
         uniform vec2  iResolution;
         uniform float iTime;
         out vec4 fragColor;
-        void main() {
-          vec2 uv = gl_FragCoord.xy / iResolution;
-          fragColor = vec4(uv, 0.5 + 0.5 * sin(iTime), 1.0);
+
+        // generated with http://dev.thi.ng/gradients/
+        vec3 palette( float t ) {
+            vec3 a = vec3(0.500,0.500,0.500);
+            vec3 b = vec3(0.500,0.500,0.500);
+            vec3 c = vec3(1.000,1.000,1.000);
+            vec3 d = vec3(0.000,0.333,0.667);
+            return a + b*cos( 6.28318*(c*t+d) );
+        }
+
+        // rotate a point around (0, 0), clockwise (degrees)
+        vec2 rotateCW(vec2 p, float a) {
+            float s = sin(radians(a)), c = cos(radians(a));
+            return vec2(p.x * c + p.y * s, -p.x * s + p.y * c);
+        }
+
+        void main(){
+            // Normalized pixel coordinates (-1..1)
+            vec2 uv = (gl_FragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
+            float acc = 0.0;
+
+            // layers of sine waves
+            for (float j = 1.0; j < 5.0; j++) {
+                float point_count = 2.0 * j;                     // even number of points
+                float angle       = 360.0 / point_count;
+                vec2  point       = vec2(0.0, (point_count == 4.0) ? 2.0 : 1.0);
+                float direction   = (mod(j, 2.0) == 0.0) ? 1.0 : -1.0;
+                float freq        = pow(1.8, point_count);
+
+                // iterate through points (max 8 to satisfy WebGL loop limits)
+                for (float i = 0.0; i < 8.0; i++) {
+                    if (i >= point_count) break;
+                    point = rotateCW(point, angle);
+                    float dist = length(uv - point);
+                    acc += sin(freq * dist + iTime * direction);
+                }
+            }
+
+            acc /= 10.0;                              // rescale height
+            float color_offset = iTime / 10.0;        // cycle through spectrum
+            vec3 color = palette(acc + color_offset);
+
+            fragColor = (length(uv) > 1.0 || acc < 0.1) ? vec4(0.0) : vec4(color, 1.0);
         }
       `;
 
-      // --------------- Three.js scene -------------------------------
-      const scene   = new THREE.Scene();
-      const camera  = new THREE.Camera();
+      // ----------------- Scene setup ------------------------------
+      const scene  = new THREE.Scene();
+      const camera = new THREE.Camera();
       camera.position.z = 1;
 
       const uniforms = {
@@ -79,8 +114,7 @@
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2,2), material);
       scene.add(quad);
 
-      // ---------------- resize & loop -------------------------------
-      function resize() {
+      function resize(){
         const w = window.innerWidth;
         const h = window.innerHeight;
         renderer.setSize(w, h, false);
@@ -90,7 +124,7 @@
       resize();
 
       const clock = new THREE.Clock();
-      function tick() {
+      function tick(){
         uniforms.iTime.value = clock.getElapsedTime();
         renderer.render(scene, camera);
         requestAnimationFrame(tick);
