@@ -39,14 +39,14 @@
       renderer.setPixelRatio(window.devicePixelRatio);
 
       // ---------------- Shaders (super‑simple gradient) --------------
-      const vert = /* glsl */`#version 300 es
+      const vert = /* glsl */`
         in  vec3 position;
         void main() {
           gl_Position = vec4(position, 1.0);
         }
       `;
 
-      const frag = /* glsl */`#version 300 es
+      const frag = /* glsl */`
         precision highp float;
         uniform vec2  iResolution;
         uniform float iTime;
