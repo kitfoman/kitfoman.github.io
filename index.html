@@ -1,136 +1,747 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kitfocapital</title>
-    <style>
-      html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,sans-serif}
-      header{position:fixed;top:0;left:0;width:100%;padding:.5rem 1rem;background:#000;color:#fff;font-size:.9rem;z-index:10}
-      header a{color:#8ad;text-decoration:none;margin-right:1rem}
-      #gl{width:100vw;height:100vh;display:block}
-    </style>
-  </head>
-  <body>
-    <header>
-      <a href="/">Home</a>
-      <a href="https://github.com/kitfoman/" target="_blank" rel="noopener">Github↗</a>
-      <a href="/blog.html">Ramblings</a>
-    </header>
-    <canvas id="gl"></canvas>
+<head>
+<meta charset="utf-8">
+<title>ካናዳ</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{
+    --bg:#0b0b10; --panel:#101018; --ink:#c8ffd4; --dim:#5a6a5e;
+    --accent:#ffb347; --err:#ff5566;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13px;overflow:hidden}
+  #bar{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;
+    background:var(--panel);border-bottom:1px solid #1d1d2a}
+  #bar .title{color:var(--accent);font-weight:bold;letter-spacing:1px}
+  #bar button,#bar label.btn{background:#1a1a26;color:var(--ink);border:1px solid #2a2a3a;
+    padding:6px 12px;border-radius:4px;cursor:pointer;font:inherit}
+  #bar button:hover,#bar label.btn:hover{border-color:var(--accent);color:var(--accent)}
+  #file{display:none}
+  #track{color:var(--dim);max-width:240px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .meter{width:54px;height:8px;background:#1a1a26;border-radius:4px;overflow:hidden}
+  .meter i{display:block;height:100%;width:0%}
+  #mB i{background:#ff7043}#mM i{background:#ffd54f}#mT i{background:#4dd0e1}
+  #wrap{display:flex;height:calc(100% - 44px)}
+  #left{width:46%;min-width:300px;display:flex;flex-direction:column;
+    border-right:1px solid #1d1d2a;background:var(--panel)}
+  #code{flex:1;width:100%;resize:none;border:0;outline:none;padding:12px;
+    background:var(--panel);color:var(--ink);font:inherit;line-height:1.45;
+    tab-size:2;white-space:pre;overflow:auto}
+  #log{max-height:30%;overflow:auto;padding:8px 12px;border-top:1px solid #1d1d2a;
+    color:var(--err);white-space:pre-wrap;display:none}
+  #log.ok{color:#6ee07a;display:block}
+  #log.bad{display:block}
+  #right{flex:1;position:relative;background:#000}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:12px;bottom:10px;color:#888;font-size:11px;
+    text-shadow:0 1px 2px #000;pointer-events:none}
+  .hidden{display:none!important}
+  #cv{filter:grayscale(1) brightness(.5);transition:filter 1.2s ease}
+  body.started #cv{filter:none}
+  #go{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:18px;cursor:pointer;
+    background:radial-gradient(ellipse at center,rgba(0,0,0,.15),rgba(0,0,0,.7));
+    transition:opacity .7s ease}
+  #go h1{color:#f3f3ee;font-size:54px;letter-spacing:10px;font-weight:normal;
+    text-shadow:0 0 28px rgba(255,179,71,.55)}
+  #go .ring{width:92px;height:92px;border:2px solid var(--accent);
+    border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:32px;color:var(--accent);padding-left:6px;
+    text-shadow:0 0 18px rgba(255,179,71,.9);
+    box-shadow:0 0 36px rgba(255,179,71,.25),inset 0 0 18px rgba(255,179,71,.15)}
+  #go p{color:#bba;letter-spacing:4px;font-size:12px;
+    animation:blink 1.5s steps(1) infinite}
+  @keyframes blink{50%{opacity:.2}}
+  body.started #go{opacity:0;pointer-events:none}
+  .CodeMirror{flex:1;height:auto;background:var(--panel);color:var(--ink);
+    font:13px "SF Mono",Menlo,Consolas,monospace;line-height:1.45}
+  .CodeMirror-gutters{background:#0d0d14;border-right:1px solid #1d1d2a}
+</style>
+<link rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+</head>
+<body>
 
-    <script type="module">
-      import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
+<div id="bar">
+  <span class="title">ካናዳ</span>
+  <label class="btn" for="file">Load MP3</label>
+  <input id="file" type="file" accept="audio/*">
+  <button id="mute">Mute</button>
+  <span id="track">no track loaded</span>
+  <span class="meter" id="mB"><i></i></span>
+  <span class="meter" id="mM"><i></i></span>
+  <span class="meter" id="mT"><i></i></span>
+  <button id="toggle">Show code</button>
+  <button id="recompile">Compile (Ctrl+Enter)</button>
+</div>
 
-      // Request explicit WebGL 2 context
-      const canvas = document.getElementById('gl');
-      const glCtx  = canvas.getContext('webgl2', { antialias: true });
-      if (!glCtx) {
-        alert('WebGL 2 not available');
-        throw new Error('WebGL 2 not available');
+<div id="wrap">
+  <div id="left" class="hidden">
+    <textarea id="code" spellcheck="false"></textarea>
+    <pre id="log"></pre>
+  </div>
+  <div id="right">
+    <canvas id="cv"></canvas>
+    <div id="hint">uniforms: time, resolution, sound, bass, mid, treb, spectrum (512x2)</div>
+    <div id="go">
+      <h1>ካናዳ</h1>
+      <div class="ring">&#9654;</div>
+      <p>CLICK TO PRESS PLAY</p>
+    </div>
+  </div>
+</div>
+
+<script id="fs" type="x-shader/x-fragment">precision highp float;
+uniform vec2 resolution;
+uniform float time;
+uniform float sound;   // overall level 0..1
+uniform float bass;    // ~40-250 Hz
+uniform float mid;     // ~250-2000 Hz
+uniform float treb;    // ~2-8 kHz
+
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float n2(vec2 p){
+  vec2 i=floor(p),f=fract(p);
+  f=f*f*(3.-2.*f);
+  return mix(mix(h21(i),h21(i+vec2(1.,0.)),f.x),
+             mix(h21(i+vec2(0.,1.)),h21(i+vec2(1.,1.)),f.x),f.y);
+}
+float fbm(vec2 p){
+  float a=.5,r=0.;
+  for(int i=0;i<4;i++){r+=a*n2(p);p=p*2.03+11.3;a*=.5;}
+  return r;
+}
+
+vec3 scene(vec2 uv,float t){
+  float asp=resolution.x/resolution.y;
+  float horizon=.38;
+
+  // smoggy sky: sodium orange sinking into dirty violet
+  vec3 col=mix(vec3(.42,.22,.07),vec3(.07,.045,.10),smoothstep(horizon-.05,1.,uv.y));
+  col+=.10*fbm(vec2(uv.x*asp*2.5+t*.015,uv.y*3.))*vec3(1.,.55,.25);
+  col+=vec3(.45,.26,.08)*exp(-abs(uv.y-horizon)*9.)*.5;
+
+  // red-eye out of LaGuardia
+  vec2 pp=vec2(fract(t*.016)*1.3-.15,.82);
+  col+=vec3(1.,.3,.2)*step(.6,fract(t*1.3))*.0015/(length((uv-pp)*vec2(asp,1.))+.01);
+
+  bool street=uv.y<horizon;
+  vec2 su=uv;
+  if(street){
+    float wob=(n2(vec2(uv.x*50.,uv.y*70.-t*1.5))-.5)*.03+(n2(uv*9.)-.5)*.02;
+    su.y=2.*horizon-uv.y+wob;   // wet asphalt mirror
+  }
+
+  float pan=t*.012;
+  vec3 skyc=col;
+
+  // moon hanging in the smog
+  {
+    vec2 md=vec2(su.x*asp,su.y)-vec2(asp*.78,.83);
+    float mr=length(md);
+    float disc=smoothstep(.062,.057,mr);
+    vec3 mc=vec3(.95,.92,.80)*(.82+.18*n2(md*60.+vec2(7.,3.)));
+    col=mix(col,mc*.9,disc*.85);
+    col+=vec3(.8,.68,.48)*.0015/(mr*mr+.004);
+  }
+
+  // brooklyn-style suspension bridge, glimpsed behind the skyline
+  {
+    float bx=su.x*asp+pan*.2+3.0;
+    float T=1.7;
+    float u=fract(bx/T);
+    float deck=horizon+.075;
+    float towH=.17;
+    float y0=deck+towH;
+    vec3 sil=mix(vec3(.022,.018,.03),skyc,.5);
+    vec3 stone=mix(vec3(.105,.080,.055),skyc,.38);
+    float yc=deck+.012+towH*pow(abs(2.*u-1.),2.);
+    float txl=(u<.5?u:u-1.)*T;
+    float atx=abs(txl);
+    // masonry tower with twin gothic arches carved through
+    if(atx<.055&&su.y>deck-.05&&su.y<y0+.035){
+      float q=min(abs(txl+.026),abs(txl-.026))/.016;
+      float yArch=deck+.085-.085*pow(min(q,1.),.7);
+      bool open=q<1.&&su.y<yArch;
+      if(!open)col=stone*(.8+.2*n2(vec2(bx*40.,su.y*40.)));
+    }
+    if(atx<.066&&abs(su.y-(y0+.018))<.011)col=stone;     // cornice cap
+    // stars and stripes over the tower
+    if(atx<.0030&&su.y>y0+.029&&su.y<y0+.092)col=sil;    // flagpole
+    float fxf=txl/.052;
+    float fy=(su.y+.006*sin(txl*150.-t*5.)-(y0+.052))/.034;
+    if(fxf>0.&&fxf<1.&&fy>0.&&fy<1.){
+      float tid=floor(bx/T+.5);        // alternate towers fly different flags
+      vec3 fc;
+      if(mod(tid,2.)<.5){
+        // stars and stripes
+        fc=mix(vec3(.55,.10,.12),vec3(.75,.72,.68),step(.5,fract(fy*6.5)));
+        if(fxf<.42&&fy>.52){
+          float str=step(.92,h21(floor(vec2(fxf*8.,fy*8.))));
+          fc=mix(vec3(.10,.12,.42),vec3(.8,.8,.85),str);
+        }
+      }else{
+        // ethiopian tricolor with the blue disc and star
+        fc=vec3(.70,.12,.10);                       // red
+        if(fy>.333)fc=vec3(.92,.74,.10);            // yellow
+        if(fy>.666)fc=vec3(.06,.42,.16);            // green
+        vec2 ed=vec2((fxf-.5)*1.2,(fy-.5)*.85);
+        if(length(ed)<.20)fc=vec3(.07,.16,.62);     // blue disc
+        if(length(ed)<.07)fc=vec3(.95,.80,.15);     // star
       }
+      col=mix(fc,skyc,.45);
+    }
+    // main cables
+    if(abs(su.y-yc)<.0048&&su.y>deck)col=sil;
+    // diagonal stays fanning down from the tower tops
+    float stx=min(u,1.-u)*T;
+    float f=(y0-su.y)/(stx+.002);
+    float stay=smoothstep(.465,.5,abs(fract(f*3.5)-.5))
+              *step(.35,f)*step(f,7.)*smoothstep(.50,.12,stx)
+              *step(deck,su.y)*step(su.y,y0);
+    col=mix(col,sil,stay*.55);
+    // vertical suspenders
+    if(abs(fract(bx*8.)-.5)<.035&&su.y>deck&&su.y<yc)col=mix(col,sil,.6);
+    // deck + railing
+    if(abs(su.y-deck)<.0065)col=sil;
+    if(abs(su.y-(deck+.013))<.0018)col=mix(col,sil,.7);
+    // necklace lights strung along the cable
+    vec2 ld=vec2((fract(bx*8.)-.5)*.21,su.y-yc);
+    col+=vec3(1.,.75,.45)*.000045/(dot(ld,ld)+.00009)*(1.+mid*.6);
+    // traffic crossing the deck
+    vec2 c1=vec2((fract(bx*.6-t*.05)-.5)*1.7,su.y-(deck+.009));
+    vec2 c2=vec2((fract(bx*.6+t*.04+.37)-.5)*1.7,su.y-(deck+.009));
+    col+=vec3(.9,.9,.75)*.00002/(dot(c1,c1)+.00005);
+    col+=vec3(.9,.2,.12)*.000016/(dot(c2,c2)+.00005);
+    // warm floodlight pooling at the tower bases
+    col+=vec3(.5,.33,.12)*exp(-atx*30.)*exp(-abs(su.y-deck)*8.)*.25*step(atx,.2);
+  }
 
-      const renderer = new THREE.WebGLRenderer({ canvas, context: glCtx });
-      renderer.setPixelRatio(window.devicePixelRatio);
+  // twin towers downtown, rising behind the skyline
+  {
+    float q=mod(su.x*asp+pan*.45+2.6,5.5);
+    float wtT=horizon+.42;
+    vec3 sil=mix(vec3(.024,.02,.032),skyc,.48);
+    float d1=abs(q-2.00);
+    float d2=abs(q-2.27);
+    if((d1<.10&&su.y<wtT)||(d2<.10&&su.y<wtT-.012)){
+      col=sil;
+      float st=fract(q*110.);
+      col*=.78+.22*step(.45,st);
+      float lit=step(.84,h21(vec2(floor(q*110.),floor(su.y*55.))));
+      col+=vec3(.95,.75,.45)*lit*.30*step(.45,st)*step(su.y,wtT-.03);
+    }
+    if(d1<.005&&su.y>=wtT&&su.y<wtT+.07)col=sil;  // north tower antenna
+    vec2 bd=vec2((q-2.00)*.8,(su.y-(wtT+.07))*1.1);
+    col+=vec3(1.,.12,.08)*step(.5,fract(t*.8))*.00002/(dot(bd,bd)+.00005);
+  }
 
-      // ----------------- Shaders -----------------------------------
-      const vert = /* glsl */`
-        in vec3 position;
-        void main(){
-          gl_Position = vec4(position, 1.0);
-        }
-      `;
-
-      const frag = /* glsl */`
-        precision highp float;
-        uniform vec2  iResolution;
-        uniform float iTime;
-        out vec4 fragColor;
-
-        // generated with http://dev.thi.ng/gradients/
-        vec3 palette( float t ) {
-            vec3 a = vec3(0.500,0.500,0.500);
-            vec3 b = vec3(0.500,0.500,0.500);
-            vec3 c = vec3(1.000,1.000,1.000);
-            vec3 d = vec3(0.000,0.333,0.667);
-            return a + b*cos( 6.28318*(c*t+d) );
-        }
-
-        // rotate a point around (0, 0), clockwise (degrees)
-        vec2 rotateCW(vec2 p, float a) {
-            float s = sin(radians(a)), c = cos(radians(a));
-            return vec2(p.x * c + p.y * s, -p.x * s + p.y * c);
-        }
-
-        void main(){
-            // Normalized pixel coordinates (-1..1)
-            vec2 uv = (gl_FragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-            float acc = 0.0;
-
-            // layers of sine waves
-            for (float j = 1.0; j < 5.0; j++) {
-                float point_count = 2.0 * j;                     // even number of points
-                float angle       = 360.0 / point_count;
-                vec2  point       = vec2(0.0, (point_count == 4.0) ? 2.0 : 1.0);
-                float direction   = (mod(j, 2.0) == 0.0) ? 1.0 : -1.0;
-                float freq        = pow(1.8, point_count);
-
-                // iterate through points (max 8 to satisfy WebGL loop limits)
-                for (float i = 0.0; i < 8.0; i++) {
-                    if (i >= point_count) break;
-                    point = rotateCW(point, angle);
-                    float dist = length(uv - point);
-                    acc += sin(freq * dist + iTime * direction);
-                }
-            }
-
-            acc /= 10.0;                              // rescale height
-            float color_offset = iTime / 10.0;        // cycle through spectrum
-            vec3 color = palette(acc + color_offset);
-
-            fragColor = (length(uv) > 1.0 || acc < 0.1) ? vec4(0.0) : vec4(color, 1.0);
-        }
-      `;
-
-      // ----------------- Scene setup ------------------------------
-      const scene  = new THREE.Scene();
-      const camera = new THREE.Camera();
-      camera.position.z = 1;
-
-      const uniforms = {
-        iTime:       { value: 0 },
-        iResolution: { value: new THREE.Vector2() }
-      };
-
-      const material = new THREE.RawShaderMaterial({
-        glslVersion: THREE.GLSL3,
-        vertexShader: vert,
-        fragmentShader: frag,
-        uniforms,
-        depthTest: false,
-        side: THREE.DoubleSide
-      });
-
-      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2,2), material);
-      scene.add(quad);
-
-      function resize(){
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        renderer.setSize(w, h, false);
-        uniforms.iResolution.value.set(w, h);
+  for(int l=0;l<3;l++){
+    float fl=float(l);
+    float sc=9.5-fl*2.8;
+    float x=su.x*asp*sc+fl*23.7+pan*(.25+.45*fl)*sc;
+    float id=floor(x);
+    float fx=fract(x);
+    float cx=abs(fx-.5);
+    float rl=h21(vec2(id,fl+50.));
+    float lm=step(.87,rl);                     // empire-state setback towers
+    float ch=step(.80,rl)-lm;                  // chrysler-style crowns
+    float top=horizon+.06+(.26+.16*fl)*h21(vec2(id,fl*9.+3.))+(lm+ch)*.10;
+    if(su.y<top+.10){
+      float haze=.62-.30*fl;
+      float t01=clamp((su.y-horizon)/(top-horizon),0.,1.);
+      float hw=.30+.18*h21(vec2(id,fl*3.+1.));
+      if(lm>.5){ // setback tiers
+        float tier=.30*step(.52,t01)+.25*step(.74,t01)+.18*step(.90,t01);
+        hw=.42*(1.-tier);
       }
-      window.addEventListener('resize', resize);
-      resize();
-
-      const clock = new THREE.Clock();
-      function tick(){
-        uniforms.iTime.value = clock.getElapsedTime();
-        renderer.render(scene, camera);
-        requestAnimationFrame(tick);
+      if(ch>.5)hw=.40*(1.-.80*smoothstep(.50,1.,t01)); // tapering crown
+      bool inside=(su.y<top&&cx<hw)||((lm+ch)>.5&&su.y<top+.055&&cx<.012);
+      // rooftop water tank on some plain roofs
+      float wt=step(.6,h21(vec2(id,fl+21.)))*(1.-lm-ch);
+      float tx=fx-(.32+.30*h21(vec2(id,fl+22.)));
+      if(wt>.5&&abs(tx)<.05&&su.y<top+.035&&cx<hw)inside=true;
+      if(inside){
+        vec3 b=mix(vec3(.022,.018,.030)+fl*.004,skyc,haze);
+        // lit windows, a few of them flickering
+        float rows=80.-fl*15.;
+        vec2 w=vec2(fx*6.,su.y*rows);
+        vec2 wi=floor(w)+vec2(id*13.1,fl*31.7);
+        vec2 wf=fract(w);
+        float lit=step(.60,h21(wi));
+        float flick=1.;
+        if(h21(wi+4.2)>.93)flick=step(.4,fract(t*(.4+2.*h21(wi+8.))+h21(wi)));
+        float shape=step(.22,wf.x)*step(wf.x,.78)*step(.28,wf.y)*step(wf.y,.78);
+        float edge=step(cx,hw-.06)*step(su.y,top-.02);
+        vec3 wcol=mix(vec3(1.,.72,.32),vec3(.65,.8,1.),step(.86,h21(wi+2.3)));
+        b+=wcol*lit*flick*shape*edge*(1.-haze)*.9;
+        // knicks night: orange and blue floodlit crowns
+        vec3 kc=mix(vec3(.96,.45,.10),vec3(.05,.35,.95),step(.80,t01));
+        b+=kc*lm*smoothstep(.58,.78,t01)*(1.-haze)*(.42+bass*.25);
+        // chrysler sunburst arcs
+        float arc=step(fract(t01*9.),.40)*smoothstep(.58,.70,t01);
+        b+=vec3(1.,.87,.55)*ch*arc*(1.-cx/max(hw,.02))*(1.-haze)*(.85+bass*.4);
+        // buzzing bodega neon on the near block
+        if(l==2&&lm<.5&&h21(vec2(id,77.))>.78){
+          vec2 nd=vec2((fx-.5)*.7,(su.y-(top-.10))*2.4);
+          float sd=length(nd);
+          float buzz=.55+.45*smoothstep(.3,.7,n2(vec2(t*7.,id*4.3)))+mid*.5;
+          vec3 ncol=h21(vec2(id,9.))>.5?vec3(1.,.15,.45):vec3(.15,1.,.55);
+          b+=ncol*buzz*.0099/(sd*sd+.014);
+        }
+        col=b;
       }
-      tick();
-    </script>
-  </body>
+      // blinking aircraft beacon on the mast
+      if(lm+ch>.5){
+        vec2 bd=vec2((fx-.5)*.6,(su.y-(top+.055))*1.1);
+        float bln=step(.55,fract(t*.6+h21(vec2(id,2.))*3.));
+        col+=vec3(1.,.12,.08)*bln*.00002/(dot(bd,bd)+.00005);
+      }
+    }
+  }
+
+  // choppers over the city
+  for(int k=0;k<2;k++){
+    float fk=float(k);
+    float dir=fk*2.-1.;
+    float hx=fract(t*(.022+.011*fk)+fk*.55)*(asp+.7)-.35;
+    if(dir<0.)hx=asp-hx;
+    float hy=.74+.06*fk+.02*sin(t*.8+fk*9.);
+    vec2 hp=vec2(su.x*asp-hx,su.y-hy);
+    // body silhouette + rotor strobe
+    col=mix(col,vec3(.02,.02,.03),smoothstep(.012,.006,length(hp*vec2(1.,2.2))));
+    float rot=smoothstep(.0035,.0015,abs(hp.y-.011))
+             *smoothstep(.030,.012,abs(hp.x));
+    col=mix(col,vec3(.035,.035,.045),rot*step(.5,fract(t*30.+fk)));
+    // nav lights
+    col+=vec3(1.,.1,.1)*step(.6,fract(t*1.7+fk*.4))*.00001/(dot(hp,hp)+.00002);
+    vec2 gp=vec2(hp.x-.012*dir,hp.y);
+    col+=vec3(.2,1.,.3)*step(.8,fract(t*1.1+fk*.7))*.000006/(dot(gp,gp)+.000015);
+    // nypd searchlight sweeping the blocks below
+    if(k==0&&su.y<hy){
+      float dy=hy-su.y;
+      float tilt=.35*sin(t*.43);
+      float bw=.012+dy*.22;
+      float cone=smoothstep(bw,bw*.2,abs(hp.x-dy*tilt))*exp(-dy*2.2)*(.35+bass*.3);
+      col+=vec3(.9,.95,1.)*cone;
+    }
+  }
+
+  // elevated track out front with a passing MTA train
+  {
+    float ex=su.x*asp+pan*2.4;
+    float ely=horizon+.155;
+    vec3 dark=vec3(.014,.012,.02);
+    // support columns down to the street
+    if(abs(fract(ex*2.2)-.5)<.028&&su.y<ely&&su.y>horizon-.005)col=mix(dark,col,.12);
+    // track girder
+    if(abs(su.y-ely)<.011)col=mix(dark,vec3(.05,.04,.05),step(.55,fract(ex*26.)));
+    // the train itself, heading left, back every ~25s
+    float p=4.5-mod(t*.42,10.5);
+    float d=ex-p;
+    if(d>0.&&d<1.3&&su.y>ely+.009&&su.y<ely+.064){
+      float vsh=(su.y-ely-.009)/.055;
+      col=vec3(.13,.14,.17);                              // brushed stainless
+      col+=vec3(.15,.17,.21)*smoothstep(.5,.95,vsh);      // cool roofline sheen
+      col+=vec3(.26,.17,.06)*smoothstep(.30,.05,abs(vsh-.20)); // sodium streak
+      col*=.86+.14*sin(d*620.);                           // corrugated fluting
+      float car=fract(d/.216);
+      float gap=step(.035,car)*step(car,.965);
+      if(su.y>ely+.030&&su.y<ely+.048){
+        float wd=fract(d*37.);
+        float win=step(.28,wd)*step(wd,.72)*gap;
+        float fl2=.7+.3*step(.25,fract(t*11.+floor(d/.216)*.7));
+        col=mix(col,vec3(.9,1.,1.15)*fl2,win);            // cool fluorescents
+      }
+      if(gap<.5)col=vec3(.03,.03,.04);                    // coupling shadow
+      // MTA bullet on a couple of the cars
+      vec2 m=vec2((car-.5)*.216,su.y-(ely+.0195))/.0088;
+      float cid=floor(d/.216);
+      if(dot(m,m)<1.&&gap>.5&&h21(vec2(cid,3.3))>.55){
+        col=vec3(.04,.18,.60);                            // mta blue disc
+        float bar=step(abs(abs(m.x)-.42),.13)*step(abs(m.y),.52);
+        float vee=step(abs(m.y-(-.1+2.*abs(m.x))),.16)
+                 *step(abs(m.x),.32)*step(m.y,.55);
+        col=mix(col,vec3(.92,.95,1.),clamp(bar+vee,0.,1.)*.9);
+      }
+    }
+    // bluish headlight + beam washing the rain ahead
+    vec2 hd=vec2(d,(su.y-(ely+.033))*2.2);
+    col+=vec3(.7,.85,1.)*.0002/(dot(hd,hd)+.00028)*step(d,.03)*step(-.4,d);
+    float beam=exp(d*4.5)*step(d,0.)*step(-1.8,d);
+    col+=vec3(.35,.55,1.)*beam*exp(-abs(su.y-(ely+.033))*20.)*(.3+bass*.25);
+    // third-rail spark: bass hits make it arc more often
+    float on=step(-1.4,p)*step(p,asp+.2);
+    float fz=h21(vec2(floor(t*9.),7.));
+    if(on*step(.93-bass*.12,fz)>.5){
+      float sx=p+h21(vec2(floor(t*9.),3.))*1.2;
+      vec2 sdv=vec2(ex-sx,(su.y-ely-.014)*1.4);
+      col+=vec3(.55,.7,1.)*.0016/(dot(sdv,sdv)+.0016);
+    }
+  }
+
+  if(street){
+    float smear=.55+.45*n2(vec2(uv.x*160.,uv.y*5.));
+    float depth=(horizon-uv.y)/horizon;
+    col*=(.30+.25*smear)*(1.-.35*depth);
+    col+=vec3(.06,.045,.03)*(1.-depth);
+    // streetlight pools smeared down the wet pavement
+    col+=vec3(.5,.35,.12)*pow(n2(vec2(uv.x*30.,2.)),3.)*exp(-depth*3.)*(.35+bass*.2);
+    // road markings: double yellow + dashed white lane line
+    float ly=horizon-.105;
+    float dbl=smoothstep(.0035,.0018,abs(abs(uv.y-ly)-.005));
+    col=mix(col,vec3(.50,.37,.06),dbl*.6);
+    float dash=step(.45,fract(uv.x*asp*6.+.3));
+    float lne=smoothstep(.0035,.0018,abs(uv.y-(horizon-.040)));
+    col=mix(col,vec3(.40,.40,.42),lne*dash*.5);
+    // sidewalk + curb out front
+    float walk=smoothstep(.120,.112,uv.y);
+    vec3 side=vec3(.055,.050,.055)*(.7+.3*n2(uv*vec2(90.,40.)));
+    side+=vec3(.40,.28,.10)*pow(n2(vec2(uv.x*25.,7.)),3.)*.5;
+    col=mix(col,side,walk*.9);
+    col=mix(col,vec3(.10,.09,.08),smoothstep(.0045,.0020,abs(uv.y-.121))*.8);
+  }
+
+  // yellow cabs working the avenue
+  for(int k=0;k<2;k++){
+    float fk=float(k);
+    float lane=horizon-.055-.105*fk;
+    float sz=.045+.055*fk;
+    float dir=1.-2.*fk;
+    float xp=mod(t*(.10+.14*fk)+fk*2.3,asp+1.4)-.7;
+    float sx=dir>0.?xp:asp-xp;
+    vec2 q=vec2((uv.x*asp-sx)*dir,uv.y-lane)/sz;
+    if(q.x>-.7&&q.x<.7&&q.y>-.08&&q.y<.38){
+      // contact shadow pinning the car to the road
+      float shd=smoothstep(.64,.40,abs(q.x))*smoothstep(.07,.0,abs(q.y-.015));
+      col=mix(col,col*.25,shd);
+      float body=step(abs(q.x),.58)*step(.02,q.y)*step(q.y,.18);
+      float cab=step(-.30,q.x)*step(q.x,.22)*step(.18,q.y)*step(q.y,.31);
+      float wheel=step(length(vec2(abs(q.x)-.33,q.y-.04)),.085);
+      if(wheel>0.)col=vec3(.02,.02,.025);
+      if(body+cab>0.){
+        vec3 yel=vec3(.95,.66,.06)*(.5+.5*clamp(q.y/.31,0.,1.));
+        if(cab>0.&&q.x>-.26&&q.x<.18&&q.y<.285)yel=vec3(.04,.04,.06);
+        col=yel;
+        if(body>0.&&q.y>.055&&q.y<.095&&fract(q.x*8.)>.5)col*=.25;
+      }
+      if(q.x>-.08&&q.x<.02&&q.y>.31&&q.y<.36)col=vec3(1.,.92,.6);
+    }
+    // headlights, taillights, wet smear under the car
+    vec2 hb=q-vec2(.64,.08);
+    col+=vec3(.95,.9,.7)*.0035/(dot(hb,hb)+.005);
+    vec2 tb=q-vec2(-.63,.10);
+    col+=vec3(1.,.12,.05)*.0016/(dot(tb,tb)+.003);
+    float und=smoothstep(.65,.0,abs(q.x))*exp(-max(-q.y,0.)*4.)*step(q.y,0.);
+    col+=vec3(.55,.38,.05)*und*.22;
+  }
+
+  // subway entrance on the corner
+  {
+    float X=uv.x*asp;
+    // stairwell void with light coming up the steps
+    if(X>.07&&X<.40&&uv.y<.13){
+      col=vec3(.012,.010,.016);
+      col+=vec3(.55,.40,.14)*exp(-uv.y*9.)*exp(-(X-.07)*4.);
+    }
+    // railing posts + top rail
+    if(X>.05&&X<.42){
+      if(uv.y<.155&&abs(fract(X*16.)-.5)>.38)col=vec3(.014,.012,.018);
+      if(abs(uv.y-.158)<.009)col=vec3(.014,.012,.018);
+    }
+    // lamppost + green globe
+    if(abs(X-.455)<.009&&uv.y<.345)col=vec3(.015,.013,.019);
+    vec2 gq=vec2(X-.455,uv.y-.375);
+    float gl=length(gq);
+    col=mix(col,vec3(.12,.78,.28)*(1.15-gl*14.),smoothstep(.030,.025,gl));
+    col+=vec3(.15,.9,.3)*.00045/(gl*gl+.001);
+  }
+
+  // rain: shimmers with the hi-end of the track
+  vec2 r=uv*vec2(asp,1.);
+  r.x+=uv.y*.14+t*.03;
+  float rain=pow(n2(vec2(r.x*110.,r.y*3.5+t*9.)),9.);
+  rain+=pow(n2(vec2(r.x*55.+7.7,r.y*2.2+t*6.)),9.)*.7;
+  col+=rain*vec3(.38,.43,.50)*(.55+treb*.8);
+
+  return col;
+}
+
+void main(){
+  vec2 frag=gl_FragCoord.xy/resolution;
+  vec2 c=frag-.5;
+  vec2 uv=.5+c*(1.+.07*dot(c,c));   // crt bulge
+  float t=time;
+
+  // per-line vhs jitter
+  float ln=floor(frag.y*resolution.y);
+  uv.x+=(h21(vec2(ln,floor(t*15.)))-.5)*.0018;
+
+  // roaming tracking tear
+  float bandY=fract(t*.11)*1.2-.1;
+  float tear=smoothstep(.03,.0,abs(frag.y-bandY))
+            *step(.55,h21(vec2(floor(t*.45),2.)));
+  uv.x+=tear*.04;
+
+  // chromatic aberration, worse inside the tear
+  float ca=.0022+tear*.01;
+  vec3 col;
+  col.r=scene(uv+vec2(ca,0.),t).r;
+  col.g=scene(uv,t).g;
+  col.b=scene(uv-vec2(ca,0.),t).b;
+
+  // static inside the tear band
+  col+=tear*(h21(vec2(frag.y*713.1,t*977.))-.5)*.45;
+
+  // murky grade + lifted tape blacks
+  col=pow(col,vec3(.92,.88,.98));
+  col*=vec3(1.08,1.02,.88);
+  col=col*.96+vec3(.012,.02,.017);
+
+  // the whole city breathes with the low end
+  col*=1.+bass*.10;
+
+  // scanlines, brightness flicker, grain, vignette
+  col*=.86+.14*sin(frag.y*resolution.y*3.14159);
+  col*=.97+.03*h21(vec2(floor(t*24.),1.));
+  col+=(h21(frag*resolution.xy+fract(t)*941.)-.5)*.085;
+  col*=1.-.85*dot(c,c);
+
+  // REC dot
+  float rd=length((frag-vec2(.075,.91))*vec2(resolution.x/resolution.y,1.));
+  col=mix(col,vec3(1.,.12,.08),smoothstep(.011,.007,rd)*step(.5,fract(t*.9)));
+
+  gl_FragColor=vec4(col,1.);
+}
+</script>
+
+<script>
+'use strict';
+// ---------- gl setup ----------
+const cv=document.getElementById('cv');
+const gl=cv.getContext('webgl',{antialias:false,preserveDrawingBuffer:false});
+const VS='attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+const buf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0);
+gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+
+// spectrum texture: 512 wide, row 0 = fft, row 1 = waveform
+const specTex=gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D,specTex);
+gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,512,2,0,gl.LUMINANCE,gl.UNSIGNED_BYTE,
+  new Uint8Array(512*2));
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+
+let prog=null,locs={};
+function compileShader(type,src){
+  const s=gl.createShader(type);
+  gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
+    const e=gl.getShaderInfoLog(s);gl.deleteShader(s);throw e;
+  }
+  return s;
+}
+function build(fsSrc){
+  const vs=compileShader(gl.VERTEX_SHADER,VS);
+  const fs=compileShader(gl.FRAGMENT_SHADER,fsSrc);
+  const p=gl.createProgram();
+  gl.attachShader(p,vs);gl.attachShader(p,fs);
+  gl.bindAttribLocation(p,0,'p');
+  gl.linkProgram(p);
+  gl.deleteShader(vs);gl.deleteShader(fs);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)){
+    const e=gl.getProgramInfoLog(p);gl.deleteProgram(p);throw e;
+  }
+  return p;
+}
+const code=document.getElementById('code');
+const log=document.getElementById('log');
+let editor=null;
+function getCode(){return editor?editor.getValue():code.value;}
+function recompile(){
+  try{
+    const p=build(getCode());
+    if(prog)gl.deleteProgram(prog);
+    prog=p;
+    locs={};
+    for(const n of['time','resolution','sound','bass','mid','treb','spectrum'])
+      locs[n]=gl.getUniformLocation(prog,n);
+    log.textContent='✓ compiled '+new Date().toLocaleTimeString();
+    log.className='ok';
+  }catch(e){
+    log.textContent=String(e);
+    log.className='bad';
+  }
+}
+code.value=document.getElementById('fs').textContent.trim();
+recompile();
+
+// editor niceties
+let timer=null;
+code.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(recompile,800);});
+code.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();recompile();}
+  if(e.key==='Tab'){
+    e.preventDefault();
+    const s=code.selectionStart;
+    code.setRangeText('  ',s,code.selectionEnd,'end');
+  }
+});
+document.getElementById('recompile').onclick=recompile;
+document.getElementById('toggle').onclick=function(){
+  const left=document.getElementById('left');
+  left.classList.toggle('hidden');
+  const hidden=left.classList.contains('hidden');
+  this.textContent=hidden?'Show code':'Hide code';
+  if(!hidden&&editor)setTimeout(()=>editor.refresh(),0);
+};
+// syntax highlighting if the CDN loaded (plain textarea otherwise)
+if(window.CodeMirror){
+  editor=CodeMirror.fromTextArea(code,{
+    mode:'text/x-csrc',theme:'material-darker',lineNumbers:true,
+    indentUnit:2,tabSize:2,
+    extraKeys:{'Ctrl-Enter':recompile,'Cmd-Enter':recompile}
+  });
+  editor.on('change',()=>{clearTimeout(timer);timer=setTimeout(recompile,800);});
+}
+
+// ---------- audio ----------
+let actx=null,analyser=null,freq=null,wave=null,srcNode=null;
+const DEFAULT_TRACK='canada.mp3';  // bundled track, loops in the background
+const audio=new Audio();
+audio.loop=true;
+let levels={sound:0,bass:0,mid:0,treb:0};
+let userMuted=false;
+const fileIn=document.getElementById('file');
+const muteBtn=document.getElementById('mute');
+const trackEl=document.getElementById('track');
+function updateMuteLabel(){muteBtn.textContent=audio.muted?'Unmute':'Mute';}
+// the analyser graph can only start after the first user gesture
+// (and routing the element through a suspended context would silence it,
+//  so we build the graph lazily inside the gesture)
+function firstGesture(e){
+  if(!started){
+    started=true;
+    startTime=performance.now();
+    document.body.classList.add('started');
+    trackEl.textContent=trackEl.textContent.replace(/ — press play/,'');
+  }
+  if(!actx){
+    actx=new (window.AudioContext||window.webkitAudioContext)();
+    srcNode=actx.createMediaElementSource(audio);
+    analyser=actx.createAnalyser();
+    analyser.fftSize=1024;
+    analyser.smoothingTimeConstant=.7;
+    srcNode.connect(analyser);
+    analyser.connect(actx.destination);
+    freq=new Uint8Array(analyser.frequencyBinCount);   // 512
+    wave=new Uint8Array(512);
+  }
+  actx.resume();
+  // the mute button manages itself — don't auto-unmute under its click
+  if(e&&e.target===muteBtn){updateMuteLabel();return;}
+  if(audio.muted&&!userMuted){
+    audio.muted=false;  // lift the autoplay fallback mute
+    trackEl.textContent=trackEl.textContent.replace(/ — muted.*/,'');
+  }
+  if(audio.paused&&audio.src)audio.play().catch(()=>{});
+  updateMuteLabel();
+}
+window.addEventListener('pointerdown',firstGesture);
+window.addEventListener('keydown',firstGesture);
+muteBtn.onclick=()=>{
+  const m=!audio.muted;          // toggle whatever the real state is
+  audio.muted=m;
+  userMuted=m;
+  if(!m){
+    trackEl.textContent=trackEl.textContent.replace(/ — muted.*/,'');
+    if(audio.paused&&audio.src)audio.play().catch(()=>{});
+  }
+  updateMuteLabel();
+};
+fileIn.onchange=()=>{
+  const f=fileIn.files[0];
+  if(!f)return;
+  audio.src=URL.createObjectURL(f);
+  trackEl.textContent=f.name;
+  audio.play().catch(()=>{});
+};
+audio.addEventListener('error',()=>{
+  trackEl.textContent='no '+DEFAULT_TRACK+' — use Load MP3';
+});
+// load the bundled track; visuals and music both start on the first click
+audio.src=DEFAULT_TRACK;
+trackEl.textContent=DEFAULT_TRACK+' — press play';
+updateMuteLabel();
+function band(lo,hi){ // average of freq bins in [lo,hi) Hz, 0..1
+  const hzPerBin=actx.sampleRate/analyser.fftSize;
+  let a=Math.max(1,Math.floor(lo/hzPerBin)),b=Math.min(freq.length,Math.ceil(hi/hzPerBin));
+  let s=0;for(let i=a;i<b;i++)s+=freq[i];
+  return s/Math.max(1,b-a)/255;
+}
+const specData=new Uint8Array(512*2);
+function updateAudio(){
+  if(!analyser||audio.paused){
+    for(const k in levels)levels[k]*=.94; // decay to zero when silent
+    return;
+  }
+  analyser.getByteFrequencyData(freq);
+  analyser.getByteTimeDomainData(wave);
+  const tgt={
+    bass:Math.min(1,Math.pow(band(40,250)*1.25,1.6)),
+    mid:Math.min(1,band(250,2000)*1.3),
+    treb:Math.min(1,band(2000,8000)*1.6),
+    sound:Math.min(1,band(40,8000)*1.3)
+  };
+  for(const k in tgt)levels[k]+= (tgt[k]-levels[k])*.35;
+  specData.set(freq.subarray(0,512),0);
+  specData.set(wave.subarray(0,512),512);
+  gl.bindTexture(gl.TEXTURE_2D,specTex);
+  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,512,2,gl.LUMINANCE,gl.UNSIGNED_BYTE,specData);
+}
+const mB=document.querySelector('#mB i'),mM=document.querySelector('#mM i'),
+      mT=document.querySelector('#mT i');
+
+// ---------- render loop ----------
+let started=false,startTime=performance.now();
+function frame(){
+  requestAnimationFrame(frame);
+  const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  const w=cv.clientWidth*dpr|0,h=cv.clientHeight*dpr|0;
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;gl.viewport(0,0,w,h);}
+  updateAudio();
+  mB.style.width=(levels.bass*100)+'%';
+  mM.style.width=(levels.mid*100)+'%';
+  mT.style.width=(levels.treb*100)+'%';
+  if(!prog)return;
+  gl.useProgram(prog);
+  const t=started?(performance.now()-startTime)/1000:0.;
+  if(locs.time)gl.uniform1f(locs.time,t);
+  if(locs.resolution)gl.uniform2f(locs.resolution,w,h);
+  if(locs.sound)gl.uniform1f(locs.sound,levels.sound);
+  if(locs.bass)gl.uniform1f(locs.bass,levels.bass);
+  if(locs.mid)gl.uniform1f(locs.mid,levels.mid);
+  if(locs.treb)gl.uniform1f(locs.treb,levels.treb);
+  if(locs.spectrum){
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,specTex);
+    gl.uniform1i(locs.spectrum,0);
+  }
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+}
+frame();
+</script>
+</body>
 </html>
-
