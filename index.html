@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>ካናዳ</title>
+<title>ካናዳ.mp3</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root{
@@ -76,7 +76,7 @@
 <body>
 
 <div id="bar">
-  <span class="title">ካናዳ</span>
+  <span class="title">ካናዳ.mp3</span>
   <label class="ibtn" for="file" title="Load MP3"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="12.5" r="2.3"/><rect x="6.2" y="2.6" width="1.3" height="10"/><path d="M7.5 2.6c2.8.5 4.3 1.8 4.3 4.1-1.1-1.2-2.5-1.7-4.3-1.8z"/></svg></label>
   <input id="file" type="file" accept="audio/*">
   <button id="mute" class="ibtn" title="Mute / unmute"></button>
@@ -97,9 +97,9 @@
     <canvas id="cv"></canvas>
     <div id="hint">uniforms: time, resolution, sound, bass, mid, treb, spectrum (512x2)</div>
     <div id="go">
-      <h1>ካናዳ</h1>
+      <h1>ካናዳ.mp3</h1>
       <div class="ring">&#9654;</div>
-      <p>CLICK TO PRESS PLAY</p>
+      <p>PLAY</p>
     </div>
   </div>
 </div>
@@ -122,7 +122,11 @@ float n2(vec2 p){
 }
 float fbm(vec2 p){
   float a=.5,r=0.;
-  for(int i=0;i<4;i++){r+=a*n2(p);p=p*2.03+11.3;a*=.5;}
+  int n=quality>.5?4:2;   // fewer smog octaves on the mobile fast path
+  for(int i=0;i<4;i++){
+    if(i>=n)break;
+    r+=a*n2(p);p=p*2.03+11.3;a*=.5;
+  }
   return r;
 }
 
@@ -316,6 +320,7 @@ vec3 scene(vec2 uv,float t){
 
   // choppers over the city
   for(int k=0;k<2;k++){
+    if(k==1&&quality<.5)continue;   // one chopper on mobile
     float fk=float(k);
     float dir=fk*2.-1.;
     float hx=fract(t*(.022+.011*fk)+fk*.55)*(asp+.7)-.35;
@@ -572,7 +577,7 @@ vec3 scene(vec2 uv,float t){
   vec2 r=uv*vec2(asp,1.);
   r.x+=uv.y*.14+t*.03;
   float rain=pow(n2(vec2(r.x*110.,r.y*3.5+t*9.)),9.);
-  rain+=pow(n2(vec2(r.x*55.+7.7,r.y*2.2+t*6.)),9.)*.7;
+  if(quality>.5)rain+=pow(n2(vec2(r.x*55.+7.7,r.y*2.2+t*6.)),9.)*.7;
   col+=rain*vec3(.38,.43,.50)*(.55+treb*.8);
 
   return col;
@@ -828,7 +833,7 @@ updateMuteLabel();
 // lock screen metadata + controls so background playback behaves like media
 if('mediaSession' in navigator){
   navigator.mediaSession.metadata=new MediaMetadata({
-    title:'ካናዳ',artist:'kitfo capital'});
+    title:'ካናዳ.mp3',artist:'kitfo capital'});
   navigator.mediaSession.setActionHandler('play',()=>audio.play());
   navigator.mediaSession.setActionHandler('pause',()=>audio.pause());
 }
@@ -844,8 +849,9 @@ function updateAudio(){
     for(const k in levels)levels[k]*=.94; // decay to zero when silent
     return;
   }
-  // keep the silent analysis clone in step with the audible track
-  if(aclone&&Math.abs(aclone.currentTime-audio.currentTime)>.35)
+  // keep the silent clone in step, checked ~once a second —
+  // touching media currentTime every frame janks iOS
+  if(aclone&&fcount%60===0&&Math.abs(aclone.currentTime-audio.currentTime)>.4)
     aclone.currentTime=audio.currentTime;
   analyser.getByteFrequencyData(freq);
   analyser.getByteTimeDomainData(wave);
@@ -869,16 +875,16 @@ const mB=document.querySelector('#mB i'),mM=document.querySelector('#mM i'),
 // (the VHS grain hides it) and adapt the scale to sustained frame times,
 // so the GPU never starves the audio thread
 const isMobile=isiOS||/Android/i.test(navigator.userAgent);
-const baseScale=isMobile?.6:1;
+const baseScale=isMobile?.5:1;
 let resScale=baseScale,ema=16,lastT=performance.now(),fcount=0;
 let started=false,startTime=performance.now();
 function frame(){
   requestAnimationFrame(frame);
   const now=performance.now();
   ema=ema*.95+(now-lastT)*.05;lastT=now;
-  if(++fcount%180===0){
-    if(ema>30&&resScale>.40)resScale*=.85;
-    else if(ema<17&&resScale<baseScale)resScale=Math.min(baseScale,resScale*1.12);
+  if(++fcount%60===0){
+    if(ema>26&&resScale>.35)resScale*=.82;
+    else if(ema<17&&resScale<baseScale)resScale=Math.min(baseScale,resScale*1.08);
   }
   const dpr=Math.min(window.devicePixelRatio||1,isMobile?1:1.5)*resScale;
   const w=cv.clientWidth*dpr|0,h=cv.clientHeight*dpr|0;
