@@ -411,7 +411,9 @@ vec3 scene(vec2 uv,float t){
     float road=smoothstep(roadT,roadT-.025,uv.y)*step(.115,uv.y);
     vec3 asph=vec3(.045,.042,.048)*(.75+.25*n2(uv*vec2(70.,30.)));
     asph+=vec3(.40,.27,.09)*pow(n2(vec2(uv.x*22.,5.)),3.)*.30;
-    col=mix(col,asph,road*.85);
+    // bright reflections (train windows, beams, neon) bleed through the wet road
+    float rlum=dot(col,vec3(.30,.50,.20));
+    col=mix(col,asph,road*clamp(.95-rlum*1.6,.30,.88));
     // markings on the roadbed
     float ly=.205;
     float dbl=smoothstep(.0035,.0018,abs(abs(uv.y-ly)-.005));
