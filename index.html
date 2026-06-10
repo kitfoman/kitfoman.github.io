@@ -113,6 +113,10 @@ uniform float mid;     // ~250-2000 Hz
 uniform float treb;    // ~2-8 kHz
 uniform float quality; // 1 = desktop (3-tap aberration), 0 = mobile fast path
 
+// scene layout in uv space (y up): sky > .38 horizon, wet mirror .305-.38,
+// roadbed .115-.305 (two traffic lanes), sidewalk + subway entrance < .12.
+// everything drawn with `su` reflects in the wet zone; `uv` things don't.
+
 float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
 float n2(vec2 p){
   vec2 i=floor(p),f=fract(p);
@@ -152,6 +156,8 @@ vec3 scene(vec2 uv,float t){
 
   float pan=t*.012;
   vec3 skyc=col;
+
+  // ============ backdrop: moon, bridge, twin towers ============
 
   // moon hanging in the smog
   {
@@ -254,6 +260,7 @@ vec3 scene(vec2 uv,float t){
     col+=vec3(1.,.12,.08)*step(.5,fract(t*.8))*.00002/(dot(bd,bd)+.00005);
   }
 
+  // ============ skyline: three parallax layers of buildings ============
   for(int l=0;l<3;l++){
     float fl=float(l);
     float sc=9.5-fl*2.8;
@@ -318,6 +325,8 @@ vec3 scene(vec2 uv,float t){
     }
   }
 
+  // ============ air + elevated line ============
+
   // choppers over the city
   for(int k=0;k<2;k++){
     if(k==1&&quality<.5)continue;   // one chopper on mobile
@@ -356,8 +365,10 @@ vec3 scene(vec2 uv,float t){
     // track girder
     if(abs(su.y-ely)<.011)col=mix(dark,vec3(.05,.04,.05),step(.55,fract(ex*26.)));
     // the train itself, heading left, back every ~25s
-    float p=4.5-mod(t*.42,10.5);
-    float d=ex-p;
+    // (positioned in the stationary screen frame, not the panning track frame,
+    //  so the cycle reset always happens offscreen instead of popping into view)
+    float p=asp+.3-mod(t*.42,10.5);
+    float d=su.x*asp-p;
     if(d>0.&&d<1.3&&su.y>ely+.009&&su.y<ely+.064){
       float vsh=(su.y-ely-.009)/.055;
       col=vec3(.13,.14,.17);                              // brushed stainless
@@ -394,10 +405,12 @@ vec3 scene(vec2 uv,float t){
     float fz=h21(vec2(floor(t*9.),7.));
     if(on*step(.93-bass*.12,fz)>.5){
       float sx=p+h21(vec2(floor(t*9.),3.))*1.2;
-      vec2 sdv=vec2(ex-sx,(su.y-ely-.014)*1.4);
+      vec2 sdv=vec2(su.x*asp-sx,(su.y-ely-.014)*1.4);
       col+=vec3(.55,.7,1.)*.0016/(dot(sdv,sdv)+.0016);
     }
   }
+
+  // ============ street level: roadbed, traffic, sidewalk ============
 
   if(street){
     float smear=.55+.45*n2(vec2(uv.x*160.,uv.y*5.));
@@ -453,6 +466,7 @@ vec3 scene(vec2 uv,float t){
     else if(rnd<.86)vt=3;
     else vt=farL?3:4;   // the big bus only works the near lane
     if(k==1&&trip==1.)vt=5;   // a cruiser always rolls through early in the tape
+    if(k==0&&trip==1.)vt=5;   // and one heads right on the far lane soon after
     float sz=farL?.045:(vt==4?.115:.100);
     float u01=mod(prog,wrap)/wrap;
     float xp=mix(-.95,asp+.95,clamp((u01-dly)/(1.-dly),0.,1.));
@@ -574,6 +588,13 @@ vec3 scene(vec2 uv,float t){
       vec2 l1=q-vec2(-.075,.345),l2=q-vec2(.02,.345);
       col+=c1*.0012/(dot(l1,l1)+.0014);
       col+=c2*.0012/(dot(l2,l2)+.0014);
+      // strobe streaking down the wet asphalt under the car
+      float wsm=smoothstep(.8,.1,abs(q.x))*step(q.y,0.)*exp(-max(-q.y,0.)*1.6);
+      wsm*=.55+.45*n2(vec2(q.x*6.+t*.5,q.y*2.));
+      col+=mix(c1,c2,step(.5,fract(q.x*2.+.25)))*wsm*.5;
+      // wide ambient pulse on everything nearby
+      float amb=exp(-dot(q*vec2(.7,1.),q*vec2(.7,1.))*.9);
+      col+=mix(c1,c2,.5)*amb*.10;
     }
     vec3 tint=vt==0?vec3(.55,.38,.05)
              :(vt==3?vec3(.30,.38,.60)
@@ -710,6 +731,7 @@ function build(fsSrc){
   }
   return p;
 }
+// ---------- editor ----------
 const code=document.getElementById('code');
 const log=document.getElementById('log');
 let editor=null;
@@ -732,7 +754,7 @@ function recompile(){
 code.value=document.getElementById('fs').textContent.trim();
 recompile();
 
-// editor niceties
+// plain-textarea fallback bindings; CodeMirror takes over when the CDN loads
 let timer=null;
 code.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(recompile,800);});
 code.addEventListener('keydown',e=>{
