@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root{
-    --bg:#0b0b10; --panel:#101018; --ink:#c8ffd4; --dim:#5a6a5e;
-    --accent:#ffb347; --err:#ff5566;
+    --bg:#0a0a0b; --panel:#0f0f11; --ink:#dcdcdc; --dim:#8a8a8a;
+    --accent:#ffffff; --err:#ff6b6b;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;background:var(--bg);color:var(--ink);
@@ -16,16 +16,16 @@
     background:var(--panel);border-bottom:1px solid #1d1d2a}
   #bar .title{color:var(--accent);font-weight:bold;letter-spacing:1px}
   .ibtn{width:34px;height:30px;display:flex;align-items:center;justify-content:center;
-    background:#1a1a26;color:var(--ink);border:1px solid #2a2a3a;border-radius:6px;
+    background:#151517;color:#c9c9c9;border:1px solid #2d2d2f;border-radius:6px;
     cursor:pointer;font:inherit;font-size:15px;line-height:1;user-select:none}
   .ibtn:hover,.ibtn.on{border-color:var(--accent);color:var(--accent)}
   .ibtn svg{display:block;pointer-events:none}
   #file{display:none}
   #track{color:var(--dim);max-width:240px;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap}
-  .meter{width:54px;height:8px;background:#1a1a26;border-radius:4px;overflow:hidden}
+  .meter{width:54px;height:8px;background:#1a1a1c;border-radius:4px;overflow:hidden}
   .meter i{display:block;height:100%;width:0%}
-  #mB i{background:#ff7043}#mM i{background:#ffd54f}#mT i{background:#4dd0e1}
+  #mB i{background:#efefef}#mM i{background:#ababab}#mT i{background:#6e6e6e}
   #wrap{display:flex;height:calc(100% - 44px);position:relative}
   #left{position:absolute;top:0;left:0;bottom:0;width:46%;min-width:300px;
     display:flex;flex-direction:column;z-index:4;
@@ -49,14 +49,14 @@
     align-items:center;justify-content:center;gap:18px;cursor:pointer;
     background:radial-gradient(ellipse at center,rgba(0,0,0,.15),rgba(0,0,0,.7));
     transition:opacity .7s ease}
-  #go h1{color:#f3f3ee;font-size:54px;letter-spacing:10px;font-weight:normal;
-    text-shadow:0 0 28px rgba(255,179,71,.55)}
-  #go .ring{width:92px;height:92px;border:2px solid var(--accent);
+  #go h1{color:#f4f4f4;font-size:54px;letter-spacing:10px;font-weight:normal;
+    text-shadow:0 0 28px rgba(255,255,255,.4)}
+  #go .ring{width:92px;height:92px;border:2px solid #fff;
     border-radius:50%;display:flex;align-items:center;justify-content:center;
-    font-size:32px;color:var(--accent);padding-left:6px;
-    text-shadow:0 0 18px rgba(255,179,71,.9);
-    box-shadow:0 0 36px rgba(255,179,71,.25),inset 0 0 18px rgba(255,179,71,.15)}
-  #go p{color:#bba;letter-spacing:4px;font-size:12px;
+    font-size:32px;color:#fff;padding-left:6px;
+    text-shadow:0 0 18px rgba(255,255,255,.8);
+    box-shadow:0 0 36px rgba(255,255,255,.22),inset 0 0 18px rgba(255,255,255,.12)}
+  #go p{color:#9a9a9a;letter-spacing:4px;font-size:12px;
     animation:blink 1.5s steps(1) infinite}
   @keyframes blink{50%{opacity:.2}}
   body.started #go{opacity:0;pointer-events:none}
@@ -429,19 +429,31 @@ vec3 scene(vec2 uv,float t){
     float fk=float(k);
     bool farL=(k==0||k==2);
     float lane=farL?.245:.165;   // both lanes sit on the roadbed strip
-    float sz=farL?.045:(k==1?.100:.115);
     float dir=farL?1.:-1.;
     float spd=farL?.10:.24;
     float wrap=asp+1.6;
-    float ph=k<2?fk*2.3:.5*wrap+fk*1.1;
-    float xp=mod(t*spd+ph,wrap)-.8;
+    float ph=fk<2.?fk*2.3:.5*wrap+fk*1.1;
+    float prog=t*spd+ph;
+    float trip=floor(prog/wrap);
+    // each pass rolls a fresh vehicle type and a random entry delay
+    float rnd=h21(vec2(trip*7.31+fk*13.7,fk*31.7+5.));
+    float dly=h21(vec2(trip*3.77+fk*9.1,fk*17.3+2.))*.45;
+    int vt;             // 0 cab, 1 black sedan, 2 black limo, 3 minibus, 4 anbessa
+    if(rnd<.42)vt=0;
+    else if(rnd<.60)vt=1;
+    else if(rnd<.70)vt=2;
+    else if(rnd<.85)vt=3;
+    else vt=farL?3:4;   // the big bus only works the near lane
+    float sz=farL?.045:(vt==4?.115:.100);
+    float u01=mod(prog,wrap)/wrap;
+    float xp=mix(-.95,asp+.95,clamp((u01-dly)/(1.-dly),0.,1.));
     float sx=dir>0.?xp:asp-xp;
     vec2 q=vec2((uv.x*asp-sx)*dir,uv.y-lane)/sz;
-    if(q.x>-.78&&q.x<.78&&q.y>-.08&&q.y<.46){
+    if(q.x>-.95&&q.x<.95&&q.y>-.08&&q.y<.46){
       // contact shadow pinning the vehicle to the road
       float shd=smoothstep(.68,.42,abs(q.x))*smoothstep(.07,.0,abs(q.y-.015));
       col=mix(col,col*.25,shd);
-      if(k<2){
+      if(vt==0){
         // yellow cab
         float body=step(abs(q.x),.58)*step(.02,q.y)*step(q.y,.18);
         float cab=step(-.30,q.x)*step(q.x,.22)*step(.18,q.y)*step(q.y,.31);
@@ -454,7 +466,33 @@ vec3 scene(vec2 uv,float t){
           if(body>0.&&q.y>.055&&q.y<.095&&fract(q.x*8.)>.5)col*=.25;
         }
         if(q.x>-.08&&q.x<.02&&q.y>.31&&q.y<.36)col=vec3(1.,.92,.6);
-      }else if(k==2){
+      }else if(vt==1){
+        // black towncar
+        float body=step(abs(q.x),.58)*step(.02,q.y)*step(q.y,.18);
+        float cab2=step(-.30,q.x)*step(q.x,.22)*step(.18,q.y)*step(q.y,.31);
+        float wheel=step(length(vec2(abs(q.x)-.33,q.y-.04)),.085);
+        if(wheel>0.)col=vec3(.02,.02,.025);
+        if(body+cab2>0.){
+          float shl=.45+.55*clamp(q.y/.31,0.,1.);
+          col=vec3(.055,.055,.07)*shl;
+          col+=vec3(.20,.13,.05)*smoothstep(.09,.02,q.y)*.5;  // sodium glint
+          if(cab2>0.&&q.x>-.26&&q.x<.18&&q.y<.285)col=vec3(.08,.09,.12)*shl;
+        }
+      }else if(vt==2){
+        // black stretch limo
+        float body=step(abs(q.x),.88)*step(.02,q.y)*step(q.y,.16);
+        float top=step(-.64,q.x)*step(q.x,.34)*step(.16,q.y)*step(q.y,.27);
+        float wheel=step(length(vec2(q.x+.58,q.y-.04)),.085)
+                   +step(length(vec2(q.x-.50,q.y-.04)),.085);
+        if(wheel>0.)col=vec3(.02,.02,.025);
+        if(body+top>0.){
+          float shl=.5+.5*clamp(q.y/.27,0.,1.);
+          col=vec3(.05,.05,.065)*shl;
+          if(q.y>.155&&q.y<.168)col=vec3(.28,.28,.33)*shl;    // chrome beltline
+          if(top>0.&&q.y>.175&&q.y<.245&&q.x>-.60&&q.x<.30
+             &&fract((q.x+.60)*10.)>.30)col=vec3(.09,.10,.14)*shl; // tinted glass
+        }
+      }else if(vt==3){
         // addis blue & white minibus
         float body=step(abs(q.x),.50)*step(.02,q.y)*step(q.y,.34);
         float wheel=step(length(vec2(abs(q.x)-.29,q.y-.04)),.080);
@@ -497,12 +535,14 @@ vec3 scene(vec2 uv,float t){
       }
     }
     // headlights, taillights, wet smear (shared)
-    float fX=k==3?.66:.64;
+    float fX=vt==4?.66:(vt==2?.90:.64);
     vec2 hb=q-vec2(fX,.09);
     col+=vec3(.95,.9,.7)*.0035/(dot(hb,hb)+.005);
     vec2 tb=q-vec2(.01-fX,.10);
     col+=vec3(1.,.12,.05)*.0016/(dot(tb,tb)+.003);
-    vec3 tint=k<2?vec3(.55,.38,.05):(k==2?vec3(.30,.38,.60):vec3(.55,.35,.08));
+    vec3 tint=vt==0?vec3(.55,.38,.05)
+             :(vt==3?vec3(.30,.38,.60)
+             :(vt==4?vec3(.55,.35,.08):vec3(.16,.18,.26)));
     float und=smoothstep(.70,.0,abs(q.x))*exp(-max(-q.y,0.)*4.)*step(q.y,0.);
     col+=tint*und*.22;
   }
@@ -687,7 +727,7 @@ if(window.CodeMirror){
 }
 
 // ---------- audio ----------
-let actx=null,analyser=null,freq=null,wave=null,srcNode=null;
+let actx=null,analyser=null,freq=null,wave=null,srcNode=null,aclone=null;
 const DEFAULT_TRACK='canada.mp3';  // bundled track, loops in the background
 // on iOS we skip the WebAudio analyser: routing the <audio> element through
 // an AudioContext kills playback when the phone locks. a plain element keeps
@@ -720,14 +760,22 @@ function firstGesture(e){
     document.body.classList.add('started');
     trackEl.textContent=trackEl.textContent.replace(/ — press play/,'');
   }
-  if(!actx&&!isiOS){
+  if(!actx){
     actx=new (window.AudioContext||window.webkitAudioContext)();
-    srcNode=actx.createMediaElementSource(audio);
     analyser=actx.createAnalyser();
     analyser.fftSize=1024;
     analyser.smoothingTimeConstant=.7;
-    srcNode.connect(analyser);
-    analyser.connect(actx.destination);
+    if(isiOS){
+      // analyse a silent clone so the main element keeps playing when locked
+      aclone=new Audio(audio.src);
+      aclone.loop=true;
+      srcNode=actx.createMediaElementSource(aclone);
+      srcNode.connect(analyser);     // never reaches the speakers
+    }else{
+      srcNode=actx.createMediaElementSource(audio);
+      srcNode.connect(analyser);
+      analyser.connect(actx.destination);
+    }
     freq=new Uint8Array(analyser.frequencyBinCount);   // 512
     wave=new Uint8Array(512);
   }
@@ -738,7 +786,10 @@ function firstGesture(e){
     audio.muted=false;  // lift the autoplay fallback mute
     trackEl.textContent=trackEl.textContent.replace(/ — muted.*/,'');
   }
-  const tryPlay=()=>{if(audio.paused&&audio.src)audio.play().catch(()=>{});};
+  const tryPlay=()=>{
+    if(audio.paused&&audio.src)audio.play().catch(()=>{});
+    if(aclone&&aclone.paused)aclone.play().catch(()=>{});
+  };
   tryPlay();
   if(resumed&&resumed.then)resumed.then(tryPlay,tryPlay);
   updateMuteLabel();
@@ -765,6 +816,7 @@ fileIn.onchange=()=>{
   audio.src=URL.createObjectURL(f);
   trackEl.textContent=f.name;
   audio.play().catch(()=>{});
+  if(aclone){aclone.src=audio.src;aclone.play().catch(()=>{});}
 };
 audio.addEventListener('error',()=>{
   trackEl.textContent='no '+DEFAULT_TRACK+' — use Load MP3';
@@ -792,6 +844,9 @@ function updateAudio(){
     for(const k in levels)levels[k]*=.94; // decay to zero when silent
     return;
   }
+  // keep the silent analysis clone in step with the audible track
+  if(aclone&&Math.abs(aclone.currentTime-audio.currentTime)>.35)
+    aclone.currentTime=audio.currentTime;
   analyser.getByteFrequencyData(freq);
   analyser.getByteTimeDomainData(wave);
   const tgt={
