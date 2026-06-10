@@ -15,23 +15,27 @@
   #bar{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;
     background:var(--panel);border-bottom:1px solid #1d1d2a}
   #bar .title{color:var(--accent);font-weight:bold;letter-spacing:1px}
-  #bar button,#bar label.btn{background:#1a1a26;color:var(--ink);border:1px solid #2a2a3a;
-    padding:6px 12px;border-radius:4px;cursor:pointer;font:inherit}
-  #bar button:hover,#bar label.btn:hover{border-color:var(--accent);color:var(--accent)}
+  .ibtn{width:34px;height:30px;display:flex;align-items:center;justify-content:center;
+    background:#1a1a26;color:var(--ink);border:1px solid #2a2a3a;border-radius:6px;
+    cursor:pointer;font:inherit;font-size:15px;line-height:1;user-select:none}
+  .ibtn:hover,.ibtn.on{border-color:var(--accent);color:var(--accent)}
+  .ibtn svg{display:block;pointer-events:none}
   #file{display:none}
   #track{color:var(--dim);max-width:240px;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap}
   .meter{width:54px;height:8px;background:#1a1a26;border-radius:4px;overflow:hidden}
   .meter i{display:block;height:100%;width:0%}
   #mB i{background:#ff7043}#mM i{background:#ffd54f}#mT i{background:#4dd0e1}
-  #wrap{display:flex;height:calc(100% - 44px)}
-  #left{width:46%;min-width:300px;display:flex;flex-direction:column;
-    border-right:1px solid #1d1d2a;background:var(--panel)}
+  #wrap{display:flex;height:calc(100% - 44px);position:relative}
+  #left{position:absolute;top:0;left:0;bottom:0;width:46%;min-width:300px;
+    display:flex;flex-direction:column;z-index:4;
+    background:rgba(10,10,16,.52);backdrop-filter:blur(2px);
+    border-right:1px solid rgba(50,50,75,.5)}
   #code{flex:1;width:100%;resize:none;border:0;outline:none;padding:12px;
-    background:var(--panel);color:var(--ink);font:inherit;line-height:1.45;
+    background:transparent;color:var(--ink);font:inherit;line-height:1.45;
     tab-size:2;white-space:pre;overflow:auto}
   #log{max-height:30%;overflow:auto;padding:8px 12px;border-top:1px solid #1d1d2a;
-    color:var(--err);white-space:pre-wrap;display:none}
+    background:rgba(0,0,0,.45);color:var(--err);white-space:pre-wrap;display:none}
   #log.ok{color:#6ee07a;display:block}
   #log.bad{display:block}
   #right{flex:1;position:relative;background:#000}
@@ -56,9 +60,11 @@
     animation:blink 1.5s steps(1) infinite}
   @keyframes blink{50%{opacity:.2}}
   body.started #go{opacity:0;pointer-events:none}
-  .CodeMirror{flex:1;height:auto;background:var(--panel);color:var(--ink);
-    font:13px "SF Mono",Menlo,Consolas,monospace;line-height:1.45}
-  .CodeMirror-gutters{background:#0d0d14;border-right:1px solid #1d1d2a}
+  .CodeMirror{flex:1;height:auto;color:var(--ink);
+    font:13px "SF Mono",Menlo,Consolas,monospace;line-height:1.45;
+    background:transparent!important}
+  .CodeMirror-gutters{background:rgba(10,10,16,.35)!important;
+    border-right:1px solid rgba(50,50,75,.4)!important}
 </style>
 <link rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
@@ -71,15 +77,15 @@
 
 <div id="bar">
   <span class="title">ካናዳ</span>
-  <label class="btn" for="file">Load MP3</label>
+  <label class="ibtn" for="file" title="Load MP3"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="12.5" r="2.3"/><rect x="6.2" y="2.6" width="1.3" height="10"/><path d="M7.5 2.6c2.8.5 4.3 1.8 4.3 4.1-1.1-1.2-2.5-1.7-4.3-1.8z"/></svg></label>
   <input id="file" type="file" accept="audio/*">
-  <button id="mute">Mute</button>
+  <button id="mute" class="ibtn" title="Mute / unmute"></button>
   <span id="track">no track loaded</span>
   <span class="meter" id="mB"><i></i></span>
   <span class="meter" id="mM"><i></i></span>
   <span class="meter" id="mT"><i></i></span>
-  <button id="toggle">Show code</button>
-  <button id="recompile">Compile (Ctrl+Enter)</button>
+  <button id="toggle" class="ibtn" title="Show / hide code">&lt;/&gt;</button>
+  <button id="recompile" class="ibtn" title="Compile (Ctrl+Enter)"><svg width="13" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1 3 9.2h3.8L5.6 15l6.9-8.6H8.6z"/></svg></button>
 </div>
 
 <div id="wrap">
@@ -105,6 +111,7 @@ uniform float sound;   // overall level 0..1
 uniform float bass;    // ~40-250 Hz
 uniform float mid;     // ~250-2000 Hz
 uniform float treb;    // ~2-8 kHz
+uniform float quality; // 1 = desktop (3-tap aberration), 0 = mobile fast path
 
 float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
 float n2(vec2 p){
@@ -173,30 +180,30 @@ vec3 scene(vec2 uv,float t){
       if(!open)col=stone*(.8+.2*n2(vec2(bx*40.,su.y*40.)));
     }
     if(atx<.066&&abs(su.y-(y0+.018))<.011)col=stone;     // cornice cap
-    // stars and stripes over the tower
-    if(atx<.0030&&su.y>y0+.029&&su.y<y0+.092)col=sil;    // flagpole
-    float fxf=txl/.052;
+    // two flags over each tower: stars & stripes + ethiopian tricolor
+    if(abs(txl+.022)<.0028&&su.y>y0+.029&&su.y<y0+.092)col=sil; // pole 1
+    if(abs(txl-.022)<.0028&&su.y>y0+.029&&su.y<y0+.092)col=sil; // pole 2
     float fy=(su.y+.006*sin(txl*150.-t*5.)-(y0+.052))/.034;
-    if(fxf>0.&&fxf<1.&&fy>0.&&fy<1.){
-      float tid=floor(bx/T+.5);        // alternate towers fly different flags
-      vec3 fc;
-      if(mod(tid,2.)<.5){
-        // stars and stripes
-        fc=mix(vec3(.55,.10,.12),vec3(.75,.72,.68),step(.5,fract(fy*6.5)));
-        if(fxf<.42&&fy>.52){
-          float str=step(.92,h21(floor(vec2(fxf*8.,fy*8.))));
+    float fx1=(txl+.022)/.040;
+    float fx2=(txl-.022)/.040;
+    if(fy>0.&&fy<1.){
+      if(fx1>0.&&fx1<1.){
+        vec3 fc=mix(vec3(.55,.10,.12),vec3(.75,.72,.68),step(.5,fract(fy*6.5)));
+        if(fx1<.42&&fy>.52){
+          float str=step(.92,h21(floor(vec2(fx1*8.,fy*8.))));
           fc=mix(vec3(.10,.12,.42),vec3(.8,.8,.85),str);
         }
-      }else{
-        // ethiopian tricolor with the blue disc and star
-        fc=vec3(.70,.12,.10);                       // red
-        if(fy>.333)fc=vec3(.92,.74,.10);            // yellow
-        if(fy>.666)fc=vec3(.06,.42,.16);            // green
-        vec2 ed=vec2((fxf-.5)*1.2,(fy-.5)*.85);
-        if(length(ed)<.20)fc=vec3(.07,.16,.62);     // blue disc
-        if(length(ed)<.07)fc=vec3(.95,.80,.15);     // star
+        col=mix(fc,skyc,.45);
       }
-      col=mix(fc,skyc,.45);
+      if(fx2>0.&&fx2<1.){
+        vec3 fc=vec3(.70,.12,.10);                // red
+        if(fy>.333)fc=vec3(.92,.74,.10);          // yellow
+        if(fy>.666)fc=vec3(.06,.42,.16);          // green
+        vec2 ed=vec2((fx2-.5)*1.2,(fy-.5)*.85);
+        if(length(ed)<.20)fc=vec3(.07,.16,.62);   // blue disc
+        if(length(ed)<.07)fc=vec3(.95,.80,.15);   // star
+        col=mix(fc,skyc,.45);
+      }
     }
     // main cables
     if(abs(su.y-yc)<.0048&&su.y>deck)col=sil;
@@ -394,13 +401,21 @@ vec3 scene(vec2 uv,float t){
     col+=vec3(.06,.045,.03)*(1.-depth);
     // streetlight pools smeared down the wet pavement
     col+=vec3(.5,.35,.12)*pow(n2(vec2(uv.x*30.,2.)),3.)*exp(-depth*3.)*(.35+bass*.2);
-    // road markings: double yellow + dashed white lane line
-    float ly=horizon-.105;
+    // matte asphalt roadbed at the bottom so traffic isn't on the water
+    float roadT=.305;
+    float road=smoothstep(roadT,roadT-.025,uv.y)*step(.115,uv.y);
+    vec3 asph=vec3(.045,.042,.048)*(.75+.25*n2(uv*vec2(70.,30.)));
+    asph+=vec3(.40,.27,.09)*pow(n2(vec2(uv.x*22.,5.)),3.)*.30;
+    col=mix(col,asph,road*.85);
+    // markings on the roadbed
+    float ly=.205;
     float dbl=smoothstep(.0035,.0018,abs(abs(uv.y-ly)-.005));
-    col=mix(col,vec3(.50,.37,.06),dbl*.6);
+    col=mix(col,vec3(.50,.37,.06),dbl*.6*road);
     float dash=step(.45,fract(uv.x*asp*6.+.3));
-    float lne=smoothstep(.0035,.0018,abs(uv.y-(horizon-.040)));
-    col=mix(col,vec3(.40,.40,.42),lne*dash*.5);
+    float lne=smoothstep(.0035,.0018,abs(uv.y-.262));
+    col=mix(col,vec3(.40,.40,.42),lne*dash*.5*road);
+    // road edge against the wet avenue behind it
+    col=mix(col,vec3(.09,.08,.08),smoothstep(.006,.002,abs(uv.y-roadT))*.6);
     // sidewalk + curb out front
     float walk=smoothstep(.120,.112,uv.y);
     vec3 side=vec3(.055,.050,.055)*(.7+.3*n2(uv*vec2(90.,40.)));
@@ -409,38 +424,87 @@ vec3 scene(vec2 uv,float t){
     col=mix(col,vec3(.10,.09,.08),smoothstep(.0045,.0020,abs(uv.y-.121))*.8);
   }
 
-  // yellow cabs working the avenue
-  for(int k=0;k<2;k++){
+  // street traffic: yellow cabs, the addis blue minibus, the anbessa bus
+  for(int k=0;k<4;k++){
     float fk=float(k);
-    float lane=horizon-.055-.105*fk;
-    float sz=.045+.055*fk;
-    float dir=1.-2.*fk;
-    float xp=mod(t*(.10+.14*fk)+fk*2.3,asp+1.4)-.7;
+    bool farL=(k==0||k==2);
+    float lane=farL?.245:.165;   // both lanes sit on the roadbed strip
+    float sz=farL?.045:(k==1?.100:.115);
+    float dir=farL?1.:-1.;
+    float spd=farL?.10:.24;
+    float wrap=asp+1.6;
+    float ph=k<2?fk*2.3:.5*wrap+fk*1.1;
+    float xp=mod(t*spd+ph,wrap)-.8;
     float sx=dir>0.?xp:asp-xp;
     vec2 q=vec2((uv.x*asp-sx)*dir,uv.y-lane)/sz;
-    if(q.x>-.7&&q.x<.7&&q.y>-.08&&q.y<.38){
-      // contact shadow pinning the car to the road
-      float shd=smoothstep(.64,.40,abs(q.x))*smoothstep(.07,.0,abs(q.y-.015));
+    if(q.x>-.78&&q.x<.78&&q.y>-.08&&q.y<.46){
+      // contact shadow pinning the vehicle to the road
+      float shd=smoothstep(.68,.42,abs(q.x))*smoothstep(.07,.0,abs(q.y-.015));
       col=mix(col,col*.25,shd);
-      float body=step(abs(q.x),.58)*step(.02,q.y)*step(q.y,.18);
-      float cab=step(-.30,q.x)*step(q.x,.22)*step(.18,q.y)*step(q.y,.31);
-      float wheel=step(length(vec2(abs(q.x)-.33,q.y-.04)),.085);
-      if(wheel>0.)col=vec3(.02,.02,.025);
-      if(body+cab>0.){
-        vec3 yel=vec3(.95,.66,.06)*(.5+.5*clamp(q.y/.31,0.,1.));
-        if(cab>0.&&q.x>-.26&&q.x<.18&&q.y<.285)yel=vec3(.04,.04,.06);
-        col=yel;
-        if(body>0.&&q.y>.055&&q.y<.095&&fract(q.x*8.)>.5)col*=.25;
+      if(k<2){
+        // yellow cab
+        float body=step(abs(q.x),.58)*step(.02,q.y)*step(q.y,.18);
+        float cab=step(-.30,q.x)*step(q.x,.22)*step(.18,q.y)*step(q.y,.31);
+        float wheel=step(length(vec2(abs(q.x)-.33,q.y-.04)),.085);
+        if(wheel>0.)col=vec3(.02,.02,.025);
+        if(body+cab>0.){
+          vec3 yel=vec3(.95,.66,.06)*(.5+.5*clamp(q.y/.31,0.,1.));
+          if(cab>0.&&q.x>-.26&&q.x<.18&&q.y<.285)yel=vec3(.04,.04,.06);
+          col=yel;
+          if(body>0.&&q.y>.055&&q.y<.095&&fract(q.x*8.)>.5)col*=.25;
+        }
+        if(q.x>-.08&&q.x<.02&&q.y>.31&&q.y<.36)col=vec3(1.,.92,.6);
+      }else if(k==2){
+        // addis blue & white minibus
+        float body=step(abs(q.x),.50)*step(.02,q.y)*step(q.y,.34);
+        float wheel=step(length(vec2(abs(q.x)-.29,q.y-.04)),.080);
+        if(wheel>0.)col=vec3(.02,.02,.025);
+        if(body>0.){
+          float sh=.45+.55*clamp(q.y/.34,0.,1.);
+          col=(q.y<.16?vec3(.08,.26,.62):vec3(.90,.91,.93))*sh;
+          if(q.y>.205&&q.y<.29&&q.x>-.44&&fract((q.x+.44)*5.)>.15)
+            col=vec3(.04,.05,.08);                 // windows + windshield
+        }
+      }else{
+        // anbessa city bus
+        float body=step(abs(q.x),.62)*step(.02,q.y)*step(q.y,.40);
+        float wheel=step(length(vec2(abs(q.x)-.38,q.y-.04)),.085);
+        if(wheel>0.)col=vec3(.02,.02,.025);
+        if(body>0.){
+          float sh=.45+.55*clamp(q.y/.40,0.,1.);
+          col=vec3(.62,.13,.07)*sh;                // anbessa red body
+          if(q.y>.24)col=vec3(.85,.60,.12)*sh;     // yellow upper + roof
+          if(q.y<.24&&(abs(q.x-.44)<.05||abs(q.x+.16)<.05))
+            col=vec3(.85,.60,.12)*sh;              // yellow door panels
+          if(q.y>.245&&q.y<.335&&abs(q.x)<.57&&fract((q.x+.57)*7.)>.18)
+            col=vec3(.05,.06,.09);                 // window row
+          if(q.x>.40&&q.x<.56&&q.y>.335&&q.y<.385)
+            col=vec3(.9,.78,.45);                  // lit route sign
+          // anbessa badge: yellow disc, ring lettering, leaping lion
+          vec2 bq=(vec2(q.x,q.y)-vec2(.02,.150))/.062;
+          float br=length(bq);
+          if(br<1.){
+            col=vec3(.90,.76,.28)*sh;
+            float ang=atan(bq.y,bq.x);
+            if(br>.72&&abs(sin(ang))>.5&&fract(ang*2.)>.45)
+              col=vec3(.30,.07,.04)*sh;            // circular lettering
+            vec2 lq=vec2(bq.x*1.1,bq.y*1.9+.15);
+            float head=length(vec2((bq.x-.34)*1.6,(bq.y-.22)*2.6));
+            if(br<.70&&(length(lq)<.55||head<.35))
+              col=vec3(.42,.11,.05)*sh;            // lion
+          }
+        }
       }
-      if(q.x>-.08&&q.x<.02&&q.y>.31&&q.y<.36)col=vec3(1.,.92,.6);
     }
-    // headlights, taillights, wet smear under the car
-    vec2 hb=q-vec2(.64,.08);
+    // headlights, taillights, wet smear (shared)
+    float fX=k==3?.66:.64;
+    vec2 hb=q-vec2(fX,.09);
     col+=vec3(.95,.9,.7)*.0035/(dot(hb,hb)+.005);
-    vec2 tb=q-vec2(-.63,.10);
+    vec2 tb=q-vec2(.01-fX,.10);
     col+=vec3(1.,.12,.05)*.0016/(dot(tb,tb)+.003);
-    float und=smoothstep(.65,.0,abs(q.x))*exp(-max(-q.y,0.)*4.)*step(q.y,0.);
-    col+=vec3(.55,.38,.05)*und*.22;
+    vec3 tint=k<2?vec3(.55,.38,.05):(k==2?vec3(.30,.38,.60):vec3(.55,.35,.08));
+    float und=smoothstep(.70,.0,abs(q.x))*exp(-max(-q.y,0.)*4.)*step(q.y,0.);
+    col+=tint*und*.22;
   }
 
   // subway entrance on the corner
@@ -491,11 +555,16 @@ void main(){
   uv.x+=tear*.04;
 
   // chromatic aberration, worse inside the tear
+  // (one scene sample instead of three on the mobile fast path)
   float ca=.0022+tear*.01;
   vec3 col;
-  col.r=scene(uv+vec2(ca,0.),t).r;
-  col.g=scene(uv,t).g;
-  col.b=scene(uv-vec2(ca,0.),t).b;
+  if(quality>.5){
+    col.r=scene(uv+vec2(ca,0.),t).r;
+    col.g=scene(uv,t).g;
+    col.b=scene(uv-vec2(ca,0.),t).b;
+  }else{
+    col=scene(uv,t);
+  }
 
   // static inside the tear band
   col+=tear*(h21(vec2(frag.y*713.1,t*977.))-.5)*.45;
@@ -576,7 +645,7 @@ function recompile(){
     if(prog)gl.deleteProgram(prog);
     prog=p;
     locs={};
-    for(const n of['time','resolution','sound','bass','mid','treb','spectrum'])
+    for(const n of['time','resolution','sound','bass','mid','treb','quality','spectrum'])
       locs[n]=gl.getUniformLocation(prog,n);
     log.textContent='✓ compiled '+new Date().toLocaleTimeString();
     log.className='ok';
@@ -604,7 +673,7 @@ document.getElementById('toggle').onclick=function(){
   const left=document.getElementById('left');
   left.classList.toggle('hidden');
   const hidden=left.classList.contains('hidden');
-  this.textContent=hidden?'Show code':'Hide code';
+  this.classList.toggle('on',!hidden);
   if(!hidden&&editor)setTimeout(()=>editor.refresh(),0);
 };
 // syntax highlighting if the CDN loaded (plain textarea otherwise)
@@ -620,6 +689,11 @@ if(window.CodeMirror){
 // ---------- audio ----------
 let actx=null,analyser=null,freq=null,wave=null,srcNode=null;
 const DEFAULT_TRACK='canada.mp3';  // bundled track, loops in the background
+// on iOS we skip the WebAudio analyser: routing the <audio> element through
+// an AudioContext kills playback when the phone locks. a plain element keeps
+// playing in the background, at the cost of audio-reactive visuals on iOS.
+const isiOS=/iP(hone|ad|od)/.test(navigator.userAgent)
+  ||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const audio=new Audio();
 audio.loop=true;
 let levels={sound:0,bass:0,mid:0,treb:0};
@@ -627,7 +701,15 @@ let userMuted=false;
 const fileIn=document.getElementById('file');
 const muteBtn=document.getElementById('mute');
 const trackEl=document.getElementById('track');
-function updateMuteLabel(){muteBtn.textContent=audio.muted?'Unmute':'Mute';}
+const ICON_ON='<svg width="16" height="16" viewBox="0 0 16 16">'+
+  '<path d="M2 6h2.6L9 2.8v10.4L4.6 10H2z" fill="currentColor"/>'+
+  '<path d="M11 5.2a4 4 0 0 1 0 5.6M12.8 3.4a6.5 6.5 0 0 1 0 9.2" fill="none"'+
+  ' stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+const ICON_OFF='<svg width="16" height="16" viewBox="0 0 16 16">'+
+  '<path d="M2 6h2.6L9 2.8v10.4L4.6 10H2z" fill="currentColor"/>'+
+  '<path d="M11 6.2l3.6 3.6M14.6 6.2L11 9.8" fill="none"'+
+  ' stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+function updateMuteLabel(){muteBtn.innerHTML=audio.muted?ICON_OFF:ICON_ON;}
 // the analyser graph can only start after the first user gesture
 // (and routing the element through a suspended context would silence it,
 //  so we build the graph lazily inside the gesture)
@@ -638,7 +720,7 @@ function firstGesture(e){
     document.body.classList.add('started');
     trackEl.textContent=trackEl.textContent.replace(/ — press play/,'');
   }
-  if(!actx){
+  if(!actx&&!isiOS){
     actx=new (window.AudioContext||window.webkitAudioContext)();
     srcNode=actx.createMediaElementSource(audio);
     analyser=actx.createAnalyser();
@@ -649,17 +731,23 @@ function firstGesture(e){
     freq=new Uint8Array(analyser.frequencyBinCount);   // 512
     wave=new Uint8Array(512);
   }
-  actx.resume();
+  const resumed=actx?actx.resume():null;
   // the mute button manages itself — don't auto-unmute under its click
-  if(e&&e.target===muteBtn){updateMuteLabel();return;}
+  if(e&&e.target&&muteBtn.contains(e.target)){updateMuteLabel();return;}
   if(audio.muted&&!userMuted){
     audio.muted=false;  // lift the autoplay fallback mute
     trackEl.textContent=trackEl.textContent.replace(/ — muted.*/,'');
   }
-  if(audio.paused&&audio.src)audio.play().catch(()=>{});
+  const tryPlay=()=>{if(audio.paused&&audio.src)audio.play().catch(()=>{});};
+  tryPlay();
+  if(resumed&&resumed.then)resumed.then(tryPlay,tryPlay);
   updateMuteLabel();
 }
+// pointerdown alone isn't enough on mobile: iOS only unlocks audio from
+// touchend/click gestures, so listen to all of them (handler is idempotent)
 window.addEventListener('pointerdown',firstGesture);
+window.addEventListener('touchend',firstGesture);
+window.addEventListener('click',firstGesture);
 window.addEventListener('keydown',firstGesture);
 muteBtn.onclick=()=>{
   const m=!audio.muted;          // toggle whatever the real state is
@@ -685,6 +773,13 @@ audio.addEventListener('error',()=>{
 audio.src=DEFAULT_TRACK;
 trackEl.textContent=DEFAULT_TRACK+' — press play';
 updateMuteLabel();
+// lock screen metadata + controls so background playback behaves like media
+if('mediaSession' in navigator){
+  navigator.mediaSession.metadata=new MediaMetadata({
+    title:'ካናዳ',artist:'kitfo capital'});
+  navigator.mediaSession.setActionHandler('play',()=>audio.play());
+  navigator.mediaSession.setActionHandler('pause',()=>audio.pause());
+}
 function band(lo,hi){ // average of freq bins in [lo,hi) Hz, 0..1
   const hzPerBin=actx.sampleRate/analyser.fftSize;
   let a=Math.max(1,Math.floor(lo/hzPerBin)),b=Math.min(freq.length,Math.ceil(hi/hzPerBin));
@@ -715,10 +810,22 @@ const mB=document.querySelector('#mB i'),mM=document.querySelector('#mM i'),
       mT=document.querySelector('#mT i');
 
 // ---------- render loop ----------
+// phones can't afford full retina + the 3-tap aberration: render smaller
+// (the VHS grain hides it) and adapt the scale to sustained frame times,
+// so the GPU never starves the audio thread
+const isMobile=isiOS||/Android/i.test(navigator.userAgent);
+const baseScale=isMobile?.6:1;
+let resScale=baseScale,ema=16,lastT=performance.now(),fcount=0;
 let started=false,startTime=performance.now();
 function frame(){
   requestAnimationFrame(frame);
-  const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  const now=performance.now();
+  ema=ema*.95+(now-lastT)*.05;lastT=now;
+  if(++fcount%180===0){
+    if(ema>30&&resScale>.40)resScale*=.85;
+    else if(ema<17&&resScale<baseScale)resScale=Math.min(baseScale,resScale*1.12);
+  }
+  const dpr=Math.min(window.devicePixelRatio||1,isMobile?1:1.5)*resScale;
   const w=cv.clientWidth*dpr|0,h=cv.clientHeight*dpr|0;
   if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;gl.viewport(0,0,w,h);}
   updateAudio();
@@ -734,6 +841,7 @@ function frame(){
   if(locs.bass)gl.uniform1f(locs.bass,levels.bass);
   if(locs.mid)gl.uniform1f(locs.mid,levels.mid);
   if(locs.treb)gl.uniform1f(locs.treb,levels.treb);
+  if(locs.quality)gl.uniform1f(locs.quality,isMobile?0:1);
   if(locs.spectrum){
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D,specTex);
