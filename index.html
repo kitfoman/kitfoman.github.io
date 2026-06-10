@@ -445,12 +445,14 @@ vec3 scene(vec2 uv,float t){
     // each pass rolls a fresh vehicle type and a random entry delay
     float rnd=h21(vec2(trip*7.31+fk*13.7,fk*31.7+5.));
     float dly=h21(vec2(trip*3.77+fk*9.1,fk*17.3+2.))*.45;
-    int vt;             // 0 cab, 1 black sedan, 2 black limo, 3 minibus, 4 anbessa
-    if(rnd<.42)vt=0;
-    else if(rnd<.60)vt=1;
-    else if(rnd<.70)vt=2;
-    else if(rnd<.85)vt=3;
+    int vt;   // 0 cab, 1 black sedan, 2 black limo, 3 minibus, 4 anbessa, 5 nypd
+    if(rnd<.40)vt=0;
+    else if(rnd<.54)vt=1;
+    else if(rnd<.62)vt=2;
+    else if(rnd<.74)vt=5;
+    else if(rnd<.86)vt=3;
     else vt=farL?3:4;   // the big bus only works the near lane
+    if(k==1&&trip==1.)vt=5;   // a cruiser always rolls through early in the tape
     float sz=farL?.045:(vt==4?.115:.100);
     float u01=mod(prog,wrap)/wrap;
     float xp=mix(-.95,asp+.95,clamp((u01-dly)/(1.-dly),0.,1.));
@@ -498,6 +500,24 @@ vec3 scene(vec2 uv,float t){
           if(q.y>.155&&q.y<.168)col=vec3(.28,.28,.33)*shl;    // chrome beltline
           if(top>0.&&q.y>.175&&q.y<.245&&q.x>-.60&&q.x<.30
              &&fract((q.x+.60)*10.)>.30)col=vec3(.09,.10,.14)*shl; // tinted glass
+        }
+      }else if(vt==5){
+        // nypd cruiser
+        float body=step(abs(q.x),.58)*step(.02,q.y)*step(q.y,.18);
+        float cab2=step(-.30,q.x)*step(q.x,.22)*step(.18,q.y)*step(q.y,.31);
+        float wheel=step(length(vec2(abs(q.x)-.33,q.y-.04)),.085);
+        if(wheel>0.)col=vec3(.02,.02,.025);
+        if(body+cab2>0.){
+          float shl=.45+.55*clamp(q.y/.31,0.,1.);
+          col=vec3(.50,.52,.56)*shl;                          // white cruiser
+          if(body>0.&&q.y>.055&&q.y<.105)col=vec3(.06,.14,.45)*shl; // blue stripe
+          if(cab2>0.&&q.x>-.26&&q.x<.18&&q.y<.285)col=vec3(.05,.06,.09);
+        }
+        if(q.y>.31&&q.y<.355&&q.x>-.11&&q.x<.05){             // lightbar
+          float fl5=step(.5,fract(t*3.7));
+          col=q.x<-.03?mix(vec3(1.,.05,.05),vec3(.15,.3,1.),fl5)
+                      :mix(vec3(.15,.3,1.),vec3(1.,.05,.05),fl5);
+          col*=1.6;
         }
       }else if(vt==3){
         // addis blue & white minibus
@@ -547,6 +567,14 @@ vec3 scene(vec2 uv,float t){
     col+=vec3(.95,.9,.7)*.0035/(dot(hb,hb)+.005);
     vec2 tb=q-vec2(.01-fX,.10);
     col+=vec3(1.,.12,.05)*.0016/(dot(tb,tb)+.003);
+    if(vt==5){   // strobing red/blue wash off the lightbar
+      float fl5=step(.5,fract(t*3.7));
+      vec3 c1=mix(vec3(1.,.08,.08),vec3(.15,.35,1.),fl5);
+      vec3 c2=mix(vec3(.15,.35,1.),vec3(1.,.08,.08),fl5);
+      vec2 l1=q-vec2(-.075,.345),l2=q-vec2(.02,.345);
+      col+=c1*.0012/(dot(l1,l1)+.0014);
+      col+=c2*.0012/(dot(l2,l2)+.0014);
+    }
     vec3 tint=vt==0?vec3(.55,.38,.05)
              :(vt==3?vec3(.30,.38,.60)
              :(vt==4?vec3(.55,.35,.08):vec3(.16,.18,.26)));
